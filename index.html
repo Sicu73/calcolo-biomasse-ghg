@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calcolo costo biomasse &amp; GHG — UNI/TS 11567:2024</title>
+<style>
+  :root{
+    --green:#1D9E75; --greend:#0F6E56; --greenbg:#E1F5EE;
+    --purp:#534AB7; --purpl:#7F77DD; --purpbg:#EEEDFE;
+    --ink:#2C2C2A; --sub:#5F5E5A; --line:#D9D7CE; --paper:#F1EFE8; --white:#fff;
+    --orange:#D85A30; --red:#C0392B; --bluebg:#E6F1FB; --blue:#1D6FB8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--paper);color:var(--ink);line-height:1.45}
+  header{background:#10261F;color:#fff;padding:18px 26px;border-bottom:4px solid var(--green)}
+  header h1{margin:0;font-size:20px;font-weight:700}
+  header p{margin:4px 0 0;font-size:12.5px;color:#9FC3B4}
+  .wrap{max-width:1280px;margin:0 auto;padding:20px;display:grid;grid-template-columns:430px 1fr;gap:20px;align-items:start}
+  @media(max-width:980px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .card h2{margin:0 0 12px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--greend);border-left:4px solid var(--green);padding-left:9px}
+  .card.purp h2{color:var(--purp);border-color:var(--purp)}
+  label{display:block;font-size:12.5px;color:var(--sub);margin:9px 0 3px}
+  input,select{width:100%;padding:7px 9px;font-size:14px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-family:inherit}
+  input:focus,select:focus{outline:2px solid var(--purpl);border-color:var(--purpl)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  /* tabella matrici */
+  table.mat{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+  table.mat th{text-align:left;font-size:10.5px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;padding:4px 4px;font-weight:600}
+  table.mat td{padding:2px 3px}
+  table.mat input,table.mat select{padding:5px 6px;font-size:12.5px}
+  .btn{display:inline-block;border:none;border-radius:6px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .btn-add{background:var(--greenbg);color:var(--greend)}
+  .btn-reset{background:var(--purpbg);color:var(--purp)}
+  .btn-x{background:transparent;color:var(--red);font-weight:700;cursor:pointer;border:none;font-size:15px;padding:0 4px}
+  .btnrow{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+  /* toggle GHG */
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:4px}
+  .seg button{flex:1;border:none;padding:9px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:var(--sub);font-family:inherit}
+  .seg button.on{background:var(--green);color:#fff}
+  .seg.p button.on{background:var(--purp)}
+  /* KPI */
+  .kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:560px){.kpis{grid-template-columns:1fr 1fr}}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;border-top:4px solid var(--green)}
+  .kpi .lab{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--sub);font-weight:600}
+  .kpi .val{font-size:26px;font-weight:800;margin-top:3px;color:var(--ink)}
+  .kpi .sub{font-size:11.5px;color:var(--sub);margin-top:2px}
+  .kpi.cost{border-top-color:var(--purp)} .kpi.cost .val{color:var(--purp)}
+  .kpi.save .val{color:var(--greend)}
+  .badge{display:inline-block;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700;margin-right:8px}
+  .ok{background:var(--greenbg);color:var(--greend)} .no{background:#FBEAE6;color:var(--red)}
+  .detail{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+  .detail th{background:var(--greend);color:#fff;padding:7px 8px;text-align:right;font-size:11px}
+  .detail th:first-child{text-align:left}
+  .detail td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+  .detail td:first-child{text-align:left;font-weight:600}
+  .detail tr:last-child td{font-weight:700;background:#FAFAF7}
+  .cmp{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:6px}
+  @media(max-width:680px){.cmp{grid-template-columns:1fr}}
+  .cmpcard{border:1px solid var(--line);border-radius:10px;padding:14px}
+  .cmpcard.std{background:var(--purpbg)} .cmpcard.pun{background:var(--greenbg)} .cmpcard.ris{background:#10261F;color:#fff}
+  .cmpcard .t{font-size:11px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:var(--sub)}
+  .cmpcard.ris .t{color:var(--green)}
+  .cmpcard .b{font-size:23px;font-weight:800;margin-top:5px}
+  .cmpcard.std .b{color:var(--purp)} .cmpcard.pun .b{color:var(--greend)} .cmpcard.ris .b{color:#fff}
+  .cmpcard .s{font-size:11.5px;color:var(--sub);margin-top:3px} .cmpcard.ris .s{color:#9FC3B4}
+  .note{font-size:11.5px;color:var(--sub);font-style:italic;margin-top:10px}
+  .pill{font-size:11px;color:var(--sub);margin-top:6px}
+  footer{max-width:1280px;margin:0 auto;padding:6px 20px 30px;font-size:11px;color:var(--sub)}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Calcolo costo biomasse &amp; risparmio GHG</h1>
+  <p>UNI/TS 11567:2024 · valori standard vs puntuali · modello verificato sul foglio di calcolo</p>
+</header>
+
+<div class="wrap">
+  <!-- ============ COLONNA INPUT ============ -->
+  <div>
+    <div class="card purp">
+      <h2>Impianto</h2>
+      <div class="grid2">
+        <div><label>Resa impianto (% in rete)</label><input id="resaImp" type="number" value="75" min="1" max="100" step="1"></div>
+        <div><label>Comparatore fossile EF</label>
+          <select id="ef"><option value="80">80 — altri usi / rete</option><option value="94">94 — trasporti</option></select></div>
+      </div>
+      <div class="grid2">
+        <div><label>Target risparmio GHG (%)</label><input id="target" type="number" value="80" min="0" max="100" step="1"></div>
+        <div><label>Energia di processo</label>
+          <select id="regime"><option value="rinnovabile">Rinnovabile (autoconsumo)</option><option value="base">Base (rete/fossile)</option></select></div>
+      </div>
+      <div class="grid2">
+        <div><label>Gestione digestato</label>
+          <select id="dig"><option value="A">Dig.A — aperto</option><option value="C30" selected>Dig.C — chiuso 30 gg</option><option value="C60">Dig.C — chiuso ≥60 gg</option></select></div>
+        <div><label>Upgrading / off-gas</label>
+          <select id="offgas"><option>S/C OffG</option><option selected>UpG &lt;1%</option><option>UpG &lt;0,2%</option><option>C/C OffG</option></select></div>
+      </div>
+      <div class="grid2">
+        <div><label>Portata autorizzata (Sm³/h) — check</label><input id="portata" type="number" value="300" step="10"></div>
+        <div><label>Tariffa biometano (€/MWh)</label><input id="tariffa" type="number" value="122.81" step="0.01"></div>
+      </div>
+      <div class="pill" id="prodCheck"></div>
+    </div>
+
+    <div class="card">
+      <h2>Biomasse — tonnellate / anno</h2>
+      <table class="mat"><thead><tr>
+        <th style="width:26%">Matrice</th><th style="width:22%">Categoria</th><th>Resa<br>Sm³CH₄/t</th><th>Costo<br>€/t</th><th>t/anno</th><th></th>
+      </tr></thead><tbody id="matBody"></tbody></table>
+      <div class="btnrow">
+        <button class="btn btn-add" onclick="addRow()">+ Aggiungi matrice</button>
+        <button class="btn btn-reset" onclick="resetCaso()">↺ Caso validato</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Modalità calcolo GHG</h2>
+      <div class="seg" id="segGhg">
+        <button data-m="standard" class="on" onclick="setGhg('standard')">Valori standard</button>
+        <button data-m="puntuale" onclick="setGhg('puntuale')">Valori puntuali</button>
+      </div>
+      <div id="puntFields" class="hide" style="margin-top:10px">
+        <div class="grid3">
+          <div><label>ec coltura</label><input id="ecColtura" type="number" value="12" step="0.1"></div>
+          <div><label>credito effluente</label><input id="credEff" type="number" value="-135" step="0.1"></div>
+          <div><label>etd effluente</label><input id="etdEff" type="number" value="0.5" step="0.1"></div>
+        </div>
+        <div class="note">I valori puntuali sostituiscono solo i termini propri della biomassa (ec, credito, trasporto). I termini d'impianto (lavorazione, upgrading, penalità 30 gg) restano invariati. Sono ipotesi da documentare in perizia.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ COLONNA RISULTATI ============ -->
+  <div>
+    <div class="card">
+      <h2>Risultato annuo</h2>
+      <div style="margin-bottom:12px"><span id="badgeTarget" class="badge"></span><span id="badgeLegge" class="badge"></span></div>
+      <div class="kpis">
+        <div class="kpi save"><div class="lab">Risparmio GHG</div><div class="val" id="kSave">—</div><div class="sub" id="kEmix"></div></div>
+        <div class="kpi cost"><div class="lab">Costo biomassa</div><div class="val" id="kCost">—</div><div class="sub" id="kCostSm3"></div></div>
+        <div class="kpi"><div class="lab">Biometano netto</div><div class="val" id="kProd">—</div><div class="sub">Sm³/anno in rete</div></div>
+      </div>
+      <table class="detail"><thead><tr><th>Matrice</th><th>t/anno</th><th>Energia<br>Sm³CH₄</th><th>Quota en.</th><th>E_i<br>gCO₂/MJ</th></tr></thead>
+        <tbody id="detBody"></tbody></table>
+    </div>
+
+    <div class="card">
+      <h2>Confronto Standard ↔ Puntuale (a parità di saving target)</h2>
+      <div class="cmp">
+        <div class="cmpcard std"><div class="t">Costo — GHG standard</div><div class="b" id="cStd">—</div><div class="s" id="cStdMix"></div></div>
+        <div class="cmpcard pun"><div class="t">Costo — GHG puntuale</div><div class="b" id="cPun">—</div><div class="s" id="cPunMix"></div></div>
+        <div class="cmpcard ris"><div class="t">Risparmio / anno</div><div class="b" id="cRis">—</div><div class="s" id="cRisPct"></div></div>
+      </div>
+      <div class="note" id="cmpNote">Il confronto ottimizza il mix coltura↔effluente per centrare il target di saving, a produzione invariata — indipendentemente dalle tonnellate inserite sopra. È il valore della perizia GHG puntuale: stessa sostenibilità, meno liquame, meno costo.</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Modello: emissione ponderata sull'energia, E_i = (ec + credito + (lavorazione + upgrading + penalità 30 gg)) / 0,9 + etd. Valori standard dalla tabella UNI/TS 11567:2024 (config rinnovabile/base, 3 filiere: coltura energetica, effluente zootecnico, FORSU). Strumento di supporto tecnico: verificare sempre i dati specifici d'impianto.
+</footer>
+
+<script>
+/* ===================== DATI EMISSIONI (tabella UNI 11567:2024) ===================== */
+const UPGR = {"S/C OffG":21.4, "UpG <1%":7.3, "UpG <0,2%":1.8, "C/C OffG":0.4};
+// EMIS[regime][categoria][dig A|C][offgas] = {ec, lavor, etd, cred}
+const EMIS = {
+ rinnovabile:{
+  coltura:{
+   A:{"S/C OffG":{ec:21.5,lavor:26.5,etd:0,cred:0},"UpG <1%":{ec:21.0,lavor:25.9,etd:0,cred:0},"UpG <0,2%":{ec:20.8,lavor:25.7,etd:0,cred:0},"C/C OffG":{ec:21.5,lavor:26.5,etd:0,cred:0}},
+   C:{"S/C OffG":{ec:20.9,lavor:0.4,etd:0,cred:0},"UpG <1%":{ec:20.5,lavor:0.4,etd:0,cred:0},"UpG <0,2%":{ec:20.3,lavor:0.4,etd:0,cred:0},"C/C OffG":{ec:20.9,lavor:0.4,etd:0,cred:0}}},
+  effluente:{
+   A:{"S/C OffG":{ec:0,lavor:135.2,etd:1.2,cred:-148.5},"UpG <1%":{ec:0,lavor:132.5,etd:1.2,cred:-145.5},"UpG <0,2%":{ec:0,lavor:131.4,etd:1.2,cred:-144.4},"C/C OffG":{ec:0,lavor:135.2,etd:1.2,cred:-148.5}},
+   C:{"S/C OffG":{ec:0,lavor:0.3,etd:1.0,cred:-130.2},"UpG <1%":{ec:0,lavor:0.3,etd:1.0,cred:-127.6},"UpG <0,2%":{ec:0,lavor:0.3,etd:1.0,cred:-126.5},"C/C OffG":{ec:0,lavor:0.3,etd:1.0,cred:-130.2}}},
+  forsu:{
+   A:{"S/C OffG":{ec:0,lavor:42.6,etd:0.7,cred:0},"UpG <1%":{ec:0,lavor:41.8,etd:0.7,cred:0},"UpG <0,2%":{ec:0,lavor:41.4,etd:0.7,cred:0},"C/C OffG":{ec:0,lavor:42.6,etd:0.7,cred:0}},
+   C:{"S/C OffG":{ec:0,lavor:0.5,etd:0.6,cred:0},"UpG <1%":{ec:0,lavor:0.5,etd:0.6,cred:0},"UpG <0,2%":{ec:0,lavor:0.5,etd:0.6,cred:0},"C/C OffG":{ec:0,lavor:0.5,etd:0.6,cred:0}}}},
+ base:{
+  coltura:{
+   A:{"S/C OffG":{ec:18.1,lavor:28.1,etd:0,cred:0},"UpG <1%":{ec:17.7,lavor:27.5,etd:0,cred:0},"UpG <0,2%":{ec:17.6,lavor:27.3,etd:0,cred:0},"C/C OffG":{ec:18.1,lavor:28.1,etd:0,cred:0}},
+   C:{"S/C OffG":{ec:17.6,lavor:6.0,etd:0,cred:0},"UpG <1%":{ec:17.2,lavor:5.9,etd:0,cred:0},"UpG <0,2%":{ec:17.1,lavor:5.8,etd:0,cred:0},"C/C OffG":{ec:17.6,lavor:6.0,etd:0,cred:0}}},
+  effluente:{
+   A:{"S/C OffG":{ec:0,lavor:117.9,etd:1.0,cred:-124.4},"UpG <1%":{ec:0,lavor:115.5,etd:1.0,cred:-121.9},"UpG <0,2%":{ec:0,lavor:114.6,etd:1.0,cred:-120.9},"C/C OffG":{ec:0,lavor:117.9,etd:1.0,cred:-124.4}},
+   C:{"S/C OffG":{ec:0,lavor:4.4,etd:0.9,cred:-111.9},"UpG <1%":{ec:0,lavor:4.3,etd:0.9,cred:-109.6},"UpG <0,2%":{ec:0,lavor:4.3,etd:0.9,cred:-108.8},"C/C OffG":{ec:0,lavor:4.4,etd:0.9,cred:-111.9}}},
+  forsu:{
+   A:{"S/C OffG":{ec:0,lavor:42.8,etd:0.6,cred:0},"UpG <1%":{ec:0,lavor:41.9,etd:0.6,cred:0},"UpG <0,2%":{ec:0,lavor:41.6,etd:0.6,cred:0},"C/C OffG":{ec:0,lavor:42.8,etd:0.6,cred:0}},
+   C:{"S/C OffG":{ec:0,lavor:7.2,etd:0.5,cred:0},"UpG <1%":{ec:0,lavor:7.1,etd:0.5,cred:0},"UpG <0,2%":{ec:0,lavor:7.0,etd:0.5,cred:0},"C/C OffG":{ec:0,lavor:7.2,etd:0.5,cred:0}}}}
+};
+const CAT_LABEL={coltura:"Coltura energetica",effluente:"Effluente zootecnico",forsu:"FORSU"};
+const RESA_DEF={coltura:108.58,effluente:14.5,forsu:120};
+
+/* ===================== STATO ===================== */
+let ghgMode='standard';
+let matrici=[];
+function resetCaso(){
+  matrici=[
+    {nome:"Trinciato di mais",cat:"coltura",resa:108.58,costo:49,ton:26390},
+    {nome:"Liquame suino",cat:"effluente",resa:14.5,costo:10,ton:23073}
+  ];
+  document.getElementById('resaImp').value=75;
+  document.getElementById('ef').value=80;
+  document.getElementById('target').value=80;
+  document.getElementById('regime').value='rinnovabile';
+  document.getElementById('dig').value='C30';
+  document.getElementById('offgas').value='UpG <1%';
+  setGhg('standard'); renderMat(); calc();
+}
+
+/* ===================== MODELLO ===================== */
+function cfg(){return{
+  regime:document.getElementById('regime').value,
+  dig:document.getElementById('dig').value,
+  offgas:document.getElementById('offgas').value
+};}
+function ghgParams(){return{
+  mode:ghgMode,
+  ecColtura:+document.getElementById('ecColtura').value,
+  credEff:+document.getElementById('credEff').value,
+  etdEff:+document.getElementById('etdEff').value
+};}
+// Emissione di una categoria, gCO2eq/MJ
+function Emat(cat,c,g){
+  const digKey=c.dig==='A'?'A':'C';
+  const b=EMIS[c.regime][cat][digKey][c.offgas];
+  const upgr=UPGR[c.offgas];
+  let ec=b.ec,cred=b.cred,etd=b.etd,lavor=b.lavor;
+  if(g.mode==='puntuale'){
+    if(cat==='coltura')ec=g.ecColtura;
+    if(cat==='effluente'){cred=g.credEff;etd=g.etdEff;}
+  }
+  if(c.dig==='C30')return (ec+cred+(lavor+upgr+1.6))/0.9+etd;
+  return ec+cred+lavor+upgr+etd; // Dig.A o Dig.C 60gg: nessuna penalità
+}
+
+/* ===================== CALCOLO FORWARD ===================== */
+function calc(){
+  const EF=+document.getElementById('ef').value;
+  const target=+document.getElementById('target').value/100;
+  const resaImp=+document.getElementById('resaImp').value/100;
+  const c=cfg(), g=ghgParams();
+  let CH4=0,costo=0;
+  matrici.forEach(m=>{m.energia=m.ton*m.resa; CH4+=m.energia; costo+=m.ton*m.costo;});
+  const netto=CH4*resaImp;
+  let Emix=0;
+  matrici.forEach(m=>{m.quota=CH4>0?m.energia/CH4:0; m.E=Emat(m.cat,c,g); Emix+=m.quota*m.E;});
+  const saving=EF>0?(EF-Emix)/EF:0;
+  const costoSm3=netto>0?costo/netto:0;
+
+  document.getElementById('kSave').textContent=(saving*100).toFixed(1)+'%';
+  document.getElementById('kEmix').textContent='E_mix '+Emix.toFixed(1)+' gCO₂/MJ';
+  document.getElementById('kCost').textContent=fmt0(costo)+' €';
+  document.getElementById('kCostSm3').textContent=costoSm3.toFixed(3)+' €/Sm³ netto';
+  document.getElementById('kProd').textContent=fmt0(netto);
+
+  // badge
+  const bt=document.getElementById('badgeTarget'), bl=document.getElementById('badgeLegge');
+  const okT=saving>=target-1e-9, okL=saving>=0.70-1e-9;
+  bt.className='badge '+(okT?'ok':'no'); bt.textContent=(okT?'✓ ':'✗ ')+'Target '+(target*100).toFixed(0)+'%';
+  bl.className='badge '+(okL?'ok':'no'); bl.textContent=(okL?'✓ ':'✗ ')+'Soglia legge 70%';
+
+  // dettaglio
+  let h='';
+  matrici.forEach(m=>{h+=`<tr><td>${esc(m.nome)}</td><td>${fmt0(m.ton)}</td><td>${fmt0(m.energia)}</td><td>${(m.quota*100).toFixed(1)}%</td><td>${m.E.toFixed(1)}</td></tr>`;});
+  h+=`<tr><td>TOTALE</td><td>${fmt0(matrici.reduce((s,m)=>s+m.ton,0))}</td><td>${fmt0(CH4)}</td><td>100%</td><td>${Emix.toFixed(1)}</td></tr>`;
+  document.getElementById('detBody').innerHTML=h;
+
+  // check portata
+  const portata=+document.getElementById('portata').value;
+  const oreEq=portata>0?netto/portata:0;
+  document.getElementById('prodCheck').textContent=
+    `Produzione netta derivata: ${fmt0(netto)} Sm³/anno  ≈  ${fmt0(oreEq)} h equivalenti a ${fmt0(portata)} Sm³/h`;
+
+  confronto(EF,target,resaImp,CH4,c);
+}
+
+/* ===== Confronto Standard vs Puntuale a parità di saving target (2 leve) ===== */
+function confronto(EF,target,resaImp,CH4,c){
+  const note=document.getElementById('cmpNote');
+  // leve: coltura+forsu (energia economica) vs effluente (carrier credito)
+  const col=matrici.filter(m=>m.cat!=='effluente');
+  const eff=matrici.filter(m=>m.cat==='effluente');
+  if(col.length===0||eff.length===0||CH4<=0){
+    ['cStd','cPun','cRis'].forEach(id=>document.getElementById(id).textContent='n/d');
+    ['cStdMix','cPunMix','cRisPct'].forEach(id=>document.getElementById(id).textContent='');
+    note.textContent='Per il confronto al target servono almeno una matrice non-effluente (coltura/FORSU) e un effluente zootecnico.';
+    return;
+  }
+  note.innerHTML='Il confronto ottimizza il mix coltura↔effluente per centrare il target di saving ('+(target*100).toFixed(0)+'%), a produzione invariata — indipendentemente dalle tonnellate inserite sopra. È il valore della perizia GHG puntuale: stessa sostenibilità, meno effluente, meno costo.';
+  const Emix_t=EF*(1-target);
+  // costo per energia (€/Sm³CH4) e categoria-rappresentativa, pesati sull'energia attuale del gruppo
+  function grp(arr){
+    let en=arr.reduce((s,m)=>s+m.energia,0)||1;
+    let cpe=arr.reduce((s,m)=>s+(m.energia/en)*(m.costo/m.resa),0); // €/Sm³CH4
+    // categoria dominante per l'emissione (per energia)
+    let domCat=arr.reduce((a,b)=>a.energia>=b.energia?a:b).cat;
+    return {cpe,domCat};
+  }
+  const gc=grp(col), ge=grp(eff);
+  function scenario(mode){
+    const g={mode,ecColtura:+document.getElementById('ecColtura').value,credEff:+document.getElementById('credEff').value,etdEff:+document.getElementById('etdEff').value};
+    const Ecol=Emat(gc.domCat,c,g), Eeff=Emat('effluente',c,g);
+    let xe=(Ecol-Emix_t)/(Ecol-Eeff); // frazione energia effluente
+    xe=Math.max(0,Math.min(1,xe));
+    const enEff=xe*CH4, enCol=(1-xe)*CH4;
+    const costo=enCol*gc.cpe+enEff*ge.cpe;
+    return {xe,costo,Ecol,Eeff};
+  }
+  const S=scenario('standard'), P=scenario('puntuale');
+  const ris=S.costo-P.costo;
+  document.getElementById('cStd').textContent=fmt0(S.costo)+' €';
+  document.getElementById('cPun').textContent=fmt0(P.costo)+' €';
+  document.getElementById('cRis').textContent=(ris>=0?'+':'')+fmt0(ris)+' €';
+  document.getElementById('cStdMix').textContent='effluente '+(wsFromXe(S.xe,gc,ge)*100).toFixed(1)+'% peso · E_col '+S.Ecol.toFixed(1);
+  document.getElementById('cPunMix').textContent='effluente '+(wsFromXe(P.xe,gc,ge)*100).toFixed(1)+'% peso · E_col '+P.Ecol.toFixed(1);
+  document.getElementById('cRisPct').textContent=S.costo>0?('−'+(ris/S.costo*100).toFixed(1)+'% sul costo standard'):'';
+}
+// converte frazione energia effluente -> frazione peso (servono rese rappresentative)
+function wsFromXe(xe,gc,ge){
+  // resa rappresentativa = media pesata energia attuale di ciascun gruppo
+  const rc=repResa('coltura'), re=repResa('effluente');
+  if(xe<=0)return 0; if(xe>=1)return 1;
+  const wc=(1-xe)/rc, we=xe/re; return we/(wc+we);
+}
+function repResa(kind){
+  const arr=kind==='effluente'?matrici.filter(m=>m.cat==='effluente'):matrici.filter(m=>m.cat!=='effluente');
+  let en=arr.reduce((s,m)=>s+m.energia,0); if(en<=0)return RESA_DEF[kind==='effluente'?'effluente':'coltura'];
+  // resa media armonica pesata sull'energia: en/Σ(en_i/resa_i) = en/Σton_i
+  let ton=arr.reduce((s,m)=>s+m.ton,0); return ton>0?en/ton:RESA_DEF[kind==='effluente'?'effluente':'coltura'];
+}
+
+/* ===================== UI MATRICI ===================== */
+function renderMat(){
+  let h='';
+  matrici.forEach((m,i)=>{
+    h+=`<tr>
+     <td><input value="${esc(m.nome)}" onchange="upd(${i},'nome',this.value)"></td>
+     <td><select onchange="updCat(${i},this.value)">
+        ${Object.keys(CAT_LABEL).map(k=>`<option value="${k}" ${m.cat===k?'selected':''}>${CAT_LABEL[k]}</option>`).join('')}
+       </select></td>
+     <td><input type="number" step="0.1" value="${m.resa}" onchange="upd(${i},'resa',+this.value)"></td>
+     <td><input type="number" step="0.5" value="${m.costo}" onchange="upd(${i},'costo',+this.value)"></td>
+     <td><input type="number" step="100" value="${m.ton}" onchange="upd(${i},'ton',+this.value)"></td>
+     <td><button class="btn-x" onclick="delRow(${i})" title="Rimuovi">×</button></td>
+    </tr>`;
+  });
+  document.getElementById('matBody').innerHTML=h;
+}
+function upd(i,k,v){matrici[i][k]=v;calc();}
+function updCat(i,v){matrici[i].cat=v; matrici[i].resa=RESA_DEF[v]; renderMat(); calc();}
+function addRow(){matrici.push({nome:"Nuova matrice",cat:"coltura",resa:RESA_DEF.coltura,costo:40,ton:5000});renderMat();calc();}
+function delRow(i){matrici.splice(i,1);renderMat();calc();}
+function setGhg(m){ghgMode=m;
+  document.querySelectorAll('#segGhg button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  document.getElementById('puntFields').classList.toggle('hide',m!=='puntuale');
+  document.querySelector('.card h2'); calc();
+}
+
+/* ===================== UTIL ===================== */
+function fmt0(n){return Math.round(n).toLocaleString('it-IT');}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// listeners sui campi impianto
+['resaImp','ef','target','regime','dig','offgas','portata','tariffa','ecColtura','credEff','etdEff'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',calc);
+});
+resetCaso();
+</script>
+</body>
+</html>
