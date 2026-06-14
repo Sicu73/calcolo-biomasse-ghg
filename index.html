@@ -256,29 +256,33 @@ function calc(){
   const gStd={mode:'standard'};
   const gPun=ghgParams(); gPun.mode='puntuale';
 
-  // mix INSERITO = baseline standard
+  // mix INSERITO = definisce il RAPPORTO del mix, le rese e i prezzi
   let CH4=0;
   matrici.forEach(m=>{m.energia=m.ton*m.resa; CH4+=m.energia;});
-  // netto in rete = portata × ore di funzionamento (capacità impianto, inserita a mano)
+  // netto in rete = portata × ore (inserito a mano)
   const netto=(+document.getElementById('portata').value)*(+document.getElementById('ore').value);
+  // LORDO da produrre = netto / resa = netto + ausiliari (in config rinnovabile tutto rinnovabile).
+  // La biomassa CONSUMATA deriva dal LORDO, non dal netto.
+  const gross = resaImp>0 ? netto/resaImp : 0;
+  const factor = CH4>0 ? gross/CH4 : 0; // scala il mix inserito al lordo da produrre
   // E_mix standard = riferimento iso-GHG (uguale nelle due modalità)
   let Emix0=0;
   matrici.forEach(m=>{m.quota=CH4>0?m.energia/CH4:0; m.Estd=Emat(m.cat,c,gStd); Emix0+=m.quota*m.Estd;});
 
-  // righe da mostrare: in 'puntuale' ribilancio a parità di E_mix0
+  // righe = biomassa CONSUMATA per il lordo; in 'puntuale' mix ribilanciato a parità di E_mix0
   let rows=null, rebilanciato=false;
   if(ghgMode==='puntuale'){
-    const reb=rebalance(Emix0,c,CH4,gPun);
+    const reb=rebalance(Emix0,c,gross,gPun);
     if(reb){ rows=reb.rows; rebilanciato=true; }
   }
   if(!rows){
-    rows=matrici.map(m=>({nome:m.nome,ton:m.ton,energia:m.energia,quota:m.quota,
-      E:(ghgMode==='puntuale'?Emat(m.cat,c,gPun):m.Estd),costoTot:m.ton*m.costo}));
+    rows=matrici.map(m=>({nome:m.nome,ton:m.ton*factor,energia:m.energia*factor,quota:m.quota,
+      E:(ghgMode==='puntuale'?Emat(m.cat,c,gPun):m.Estd),costoTot:m.ton*factor*m.costo}));
   }
 
   // E_mix e costo EFFETTIVI del mix mostrato
-  let Emix=0,costo=0,totTon=0;
-  rows.forEach(r=>{Emix+=r.quota*r.E; costo+=r.costoTot; totTon+=r.ton;});
+  let Emix=0,costo=0,totTon=0,totEn=0;
+  rows.forEach(r=>{Emix+=r.quota*r.E; costo+=r.costoTot; totTon+=r.ton; totEn+=r.energia;});
   const saving=EF>0?(EF-Emix)/EF:0;
   const costoSm3=netto>0?costo/netto:0;
 
@@ -297,7 +301,7 @@ function calc(){
   // dettaglio
   let h='';
   rows.forEach(r=>{h+=`<tr><td>${esc(r.nome)}</td><td>${fmt0(r.ton)}</td><td>${fmt0(r.energia)}</td><td>${(r.quota*100).toFixed(1)}%</td><td>${r.E.toFixed(1)}</td></tr>`;});
-  h+=`<tr><td>TOTALE</td><td>${fmt0(totTon)}</td><td>${fmt0(CH4)}</td><td>100%</td><td>${Emix.toFixed(1)}</td></tr>`;
+  h+=`<tr><td>TOTALE</td><td>${fmt0(totTon)}</td><td>${fmt0(totEn)}</td><td>100%</td><td>${Emix.toFixed(1)}</td></tr>`;
   document.getElementById('detBody').innerHTML=h;
 
   // nota ribilanciamento
@@ -306,13 +310,12 @@ function calc(){
   else if(ghgMode==='puntuale') rn.textContent='Per tenere lo stesso saving coi valori puntuali servono una coltura/FORSU e un effluente: qui è mostrato il mix inserito coi valori puntuali.';
   else rn.textContent='';
 
-  // coerenza: la biomassa caricata copre la capacità (portata × ore)?
-  const ch4Need=resaImp>0?netto/resaImp:0;
-  const cover=ch4Need>0?CH4/ch4Need*100:0;
+  // il LORDO (netto + ausiliari) guida la biomassa consumata
+  const aux=gross-netto;
   document.getElementById('prodCheck').textContent=
-    `CH₄ lordo dalle biomasse: ${fmt0(CH4)} Sm³/anno · richiesto per ${fmt0(netto)} Sm³ netti (resa ${(resaImp*100).toFixed(0)}%): ${fmt0(ch4Need)} Sm³ → copertura biomasse ${cover.toFixed(0)}%`;
+    `Lordo da produrre = netto / resa = ${fmt0(gross)} Sm³/anno  (netto ${fmt0(netto)} + ausiliari ${fmt0(aux)}). In config rinnovabile è tutta biomassa rinnovabile. Le tonnellate mostrate sono il consumo annuo per il lordo.`;
 
-  confronto(EF,Emix0,CH4,c);
+  confronto(EF,Emix0,gross,c);
 }
 
 /* Ribilancia il mix coltura↔effluente coi valori puntuali per tenere E_mix = EmixTarget */
