@@ -101,7 +101,11 @@
           <select id="offgas"><option>S/C OffG</option><option selected>UpG &lt;1%</option><option>UpG &lt;0,2%</option><option>C/C OffG</option></select></div>
       </div>
       <div class="grid2">
-        <div><label>Portata autorizzata (Sm³/h) — check</label><input id="portata" type="number" value="300" step="10"></div>
+        <div><label>Portata (Sm³/h netti)</label><input id="portata" type="number" value="300" step="10"></div>
+        <div><label>Ore di funzionamento (h/anno)</label><input id="ore" type="number" value="8000" step="100"></div>
+      </div>
+      <div class="grid2">
+        <div><label>Biometano netto (Sm³/anno) — auto = portata × ore</label><input id="nettoOut" type="text" readonly tabindex="-1" style="background:var(--greenbg);font-weight:700;color:var(--greend)"></div>
         <div><label>Tariffa biometano (€/MWh)</label><input id="tariffa" type="number" value="122.81" step="0.01"></div>
       </div>
       <div class="pill" id="prodCheck"></div>
@@ -209,6 +213,8 @@ function resetCaso(){
   document.getElementById('regime').value='rinnovabile';
   document.getElementById('dig').value='C30';
   document.getElementById('offgas').value='UpG <1%';
+  document.getElementById('portata').value=300;
+  document.getElementById('ore').value=8000;
   setGhg('standard'); renderMat(); calc();
 }
 
@@ -253,7 +259,8 @@ function calc(){
   // mix INSERITO = baseline standard
   let CH4=0;
   matrici.forEach(m=>{m.energia=m.ton*m.resa; CH4+=m.energia;});
-  const netto=CH4*resaImp;
+  // netto in rete = portata × ore di funzionamento (capacità impianto, inserita a mano)
+  const netto=(+document.getElementById('portata').value)*(+document.getElementById('ore').value);
   // E_mix standard = riferimento iso-GHG (uguale nelle due modalità)
   let Emix0=0;
   matrici.forEach(m=>{m.quota=CH4>0?m.energia/CH4:0; m.Estd=Emat(m.cat,c,gStd); Emix0+=m.quota*m.Estd;});
@@ -280,6 +287,7 @@ function calc(){
   document.getElementById('kCost').textContent=fmt0(costo)+' €';
   document.getElementById('kCostSm3').textContent=costoSm3.toFixed(3)+' €/Sm³ netto';
   document.getElementById('kProd').textContent=fmt0(netto);
+  document.getElementById('nettoOut').value=fmt0(netto)+' Sm³/anno';
 
   // badge
   const bt=document.getElementById('badgeTarget');
@@ -298,11 +306,11 @@ function calc(){
   else if(ghgMode==='puntuale') rn.textContent='Per tenere lo stesso saving coi valori puntuali servono una coltura/FORSU e un effluente: qui è mostrato il mix inserito coi valori puntuali.';
   else rn.textContent='';
 
-  // check portata
-  const portata=+document.getElementById('portata').value;
-  const oreEq=portata>0?netto/portata:0;
+  // coerenza: la biomassa caricata copre la capacità (portata × ore)?
+  const ch4Need=resaImp>0?netto/resaImp:0;
+  const cover=ch4Need>0?CH4/ch4Need*100:0;
   document.getElementById('prodCheck').textContent=
-    `Produzione netta derivata: ${fmt0(netto)} Sm³/anno  ≈  ${fmt0(oreEq)} h equivalenti a ${fmt0(portata)} Sm³/h`;
+    `CH₄ lordo dalle biomasse: ${fmt0(CH4)} Sm³/anno · richiesto per ${fmt0(netto)} Sm³ netti (resa ${(resaImp*100).toFixed(0)}%): ${fmt0(ch4Need)} Sm³ → copertura biomasse ${cover.toFixed(0)}%`;
 
   confronto(EF,Emix0,CH4,c);
 }
@@ -403,7 +411,7 @@ function fmt0(n){return Math.round(n).toLocaleString('it-IT');}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // listeners sui campi impianto
-['resaImp','ef','target','regime','dig','offgas','portata','tariffa','ecColtura','credEff','etdEff'].forEach(id=>{
+['resaImp','ef','target','regime','dig','offgas','portata','ore','tariffa','ecColtura','credEff','etdEff'].forEach(id=>{
   document.getElementById(id).addEventListener('input',calc);
 });
 resetCaso();
