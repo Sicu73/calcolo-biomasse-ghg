@@ -147,10 +147,11 @@
       </div>
       <table class="detail"><thead><tr><th>Matrice</th><th>t/anno</th><th>Energia<br>Sm³CH₄</th><th>Quota en.</th><th>E_i<br>gCO₂/MJ</th></tr></thead>
         <tbody id="detBody"></tbody></table>
+      <div class="note" id="rebNote"></div>
     </div>
 
     <div class="card">
-      <h2>Confronto Standard ↔ Puntuale (a parità di saving target)</h2>
+      <h2>Confronto Standard ↔ Puntuale (a parità di saving)</h2>
       <div class="cmp">
         <div class="cmpcard std"><div class="t">Costo — GHG standard</div><div class="b" id="cStd">—</div><div class="s" id="cStdMix"></div></div>
         <div class="cmpcard pun"><div class="t">Costo — GHG puntuale</div><div class="b" id="cPun">—</div><div class="s" id="cPunMix"></div></div>
@@ -237,17 +238,40 @@ function Emat(cat,c,g){
   return ec+cred+lavor+upgr+etd; // Dig.A o Dig.C 60gg: nessuna penalità
 }
 
-/* ===================== CALCOLO FORWARD ===================== */
+/* ===================== CALCOLO FORWARD (iso-GHG) ===================== */
+/* Il saving NON cambia tra standard e puntuale: è il GHG di riferimento.
+   In 'puntuale' il mix viene ribilanciato per tenere lo stesso E_mix dello standard,
+   cambiando solo tonnellate e costo (meno effluente, più coltura). */
 function calc(){
   const EF=+document.getElementById('ef').value;
   const target=+document.getElementById('target').value/100;
   const resaImp=+document.getElementById('resaImp').value/100;
-  const c=cfg(), g=ghgParams();
-  let CH4=0,costo=0;
-  matrici.forEach(m=>{m.energia=m.ton*m.resa; CH4+=m.energia; costo+=m.ton*m.costo;});
+  const c=cfg();
+  const gStd={mode:'standard'};
+  const gPun=ghgParams(); gPun.mode='puntuale';
+
+  // mix INSERITO = baseline standard
+  let CH4=0;
+  matrici.forEach(m=>{m.energia=m.ton*m.resa; CH4+=m.energia;});
   const netto=CH4*resaImp;
-  let Emix=0;
-  matrici.forEach(m=>{m.quota=CH4>0?m.energia/CH4:0; m.E=Emat(m.cat,c,g); Emix+=m.quota*m.E;});
+  // E_mix standard = riferimento iso-GHG (uguale nelle due modalità)
+  let Emix0=0;
+  matrici.forEach(m=>{m.quota=CH4>0?m.energia/CH4:0; m.Estd=Emat(m.cat,c,gStd); Emix0+=m.quota*m.Estd;});
+
+  // righe da mostrare: in 'puntuale' ribilancio a parità di E_mix0
+  let rows=null, rebilanciato=false;
+  if(ghgMode==='puntuale'){
+    const reb=rebalance(Emix0,c,CH4,gPun);
+    if(reb){ rows=reb.rows; rebilanciato=true; }
+  }
+  if(!rows){
+    rows=matrici.map(m=>({nome:m.nome,ton:m.ton,energia:m.energia,quota:m.quota,
+      E:(ghgMode==='puntuale'?Emat(m.cat,c,gPun):m.Estd),costoTot:m.ton*m.costo}));
+  }
+
+  // E_mix e costo EFFETTIVI del mix mostrato
+  let Emix=0,costo=0,totTon=0;
+  rows.forEach(r=>{Emix+=r.quota*r.E; costo+=r.costoTot; totTon+=r.ton;});
   const saving=EF>0?(EF-Emix)/EF:0;
   const costoSm3=netto>0?costo/netto:0;
 
@@ -265,9 +289,15 @@ function calc(){
 
   // dettaglio
   let h='';
-  matrici.forEach(m=>{h+=`<tr><td>${esc(m.nome)}</td><td>${fmt0(m.ton)}</td><td>${fmt0(m.energia)}</td><td>${(m.quota*100).toFixed(1)}%</td><td>${m.E.toFixed(1)}</td></tr>`;});
-  h+=`<tr><td>TOTALE</td><td>${fmt0(matrici.reduce((s,m)=>s+m.ton,0))}</td><td>${fmt0(CH4)}</td><td>100%</td><td>${Emix.toFixed(1)}</td></tr>`;
+  rows.forEach(r=>{h+=`<tr><td>${esc(r.nome)}</td><td>${fmt0(r.ton)}</td><td>${fmt0(r.energia)}</td><td>${(r.quota*100).toFixed(1)}%</td><td>${r.E.toFixed(1)}</td></tr>`;});
+  h+=`<tr><td>TOTALE</td><td>${fmt0(totTon)}</td><td>${fmt0(CH4)}</td><td>100%</td><td>${Emix.toFixed(1)}</td></tr>`;
   document.getElementById('detBody').innerHTML=h;
+
+  // nota ribilanciamento
+  const rn=document.getElementById('rebNote');
+  if(rebilanciato) rn.textContent='Modalità puntuale: mix ribilanciato a parità di saving ('+(saving*100).toFixed(1)+'%, identico allo standard) — meno effluente, più coltura, costo più basso. Le tonnellate a sinistra restano il mix standard inserito.';
+  else if(ghgMode==='puntuale') rn.textContent='Per tenere lo stesso saving coi valori puntuali servono una coltura/FORSU e un effluente: qui è mostrato il mix inserito coi valori puntuali.';
+  else rn.textContent='';
 
   // check portata
   const portata=+document.getElementById('portata').value;
@@ -275,49 +305,58 @@ function calc(){
   document.getElementById('prodCheck').textContent=
     `Produzione netta derivata: ${fmt0(netto)} Sm³/anno  ≈  ${fmt0(oreEq)} h equivalenti a ${fmt0(portata)} Sm³/h`;
 
-  confronto(EF,target,resaImp,CH4,c);
+  confronto(EF,Emix0,CH4,c);
 }
 
-/* ===== Confronto Standard vs Puntuale a parità di saving target (2 leve) ===== */
-function confronto(EF,target,resaImp,CH4,c){
+/* Ribilancia il mix coltura↔effluente coi valori puntuali per tenere E_mix = EmixTarget */
+function rebalance(EmixTarget,c,CH4,gPun){
+  const col=matrici.filter(m=>m.cat!=='effluente');
+  const eff=matrici.filter(m=>m.cat==='effluente');
+  if(col.length===0||eff.length===0||CH4<=0) return null;
+  const enCol0=col.reduce((s,m)=>s+m.energia,0);
+  const enEff0=eff.reduce((s,m)=>s+m.energia,0);
+  const domCol=col.reduce((a,b)=>a.energia>=b.energia?a:b).cat;
+  const Ecol=Emat(domCol,c,gPun), Eeff=Emat('effluente',c,gPun);
+  if(Ecol===Eeff) return null;
+  let xe=(Ecol-EmixTarget)/(Ecol-Eeff); xe=Math.max(0,Math.min(1,xe));
+  const enEff=xe*CH4, enCol=(1-xe)*CH4, rows=[];
+  col.forEach(m=>{const en=enCol0>0?enCol*(m.energia/enCol0):enCol/col.length;const ton=m.resa>0?en/m.resa:0;rows.push({nome:m.nome,ton,energia:en,quota:CH4>0?en/CH4:0,E:Emat(m.cat,c,gPun),costoTot:ton*m.costo});});
+  eff.forEach(m=>{const en=enEff0>0?enEff*(m.energia/enEff0):enEff/eff.length;const ton=m.resa>0?en/m.resa:0;rows.push({nome:m.nome,ton,energia:en,quota:CH4>0?en/CH4:0,E:Emat(m.cat,c,gPun),costoTot:ton*m.costo});});
+  return {rows,xe};
+}
+
+/* ===== Confronto Standard vs Puntuale a PARITÀ DI SAVING (iso-GHG) ===== */
+function confronto(EF,Emix0,CH4,c){
   const note=document.getElementById('cmpNote');
-  // leve: coltura+forsu (energia economica) vs effluente (carrier credito)
+  const saving0=EF>0?(EF-Emix0)/EF:0;
   const col=matrici.filter(m=>m.cat!=='effluente');
   const eff=matrici.filter(m=>m.cat==='effluente');
   if(col.length===0||eff.length===0||CH4<=0){
     ['cStd','cPun','cRis'].forEach(id=>document.getElementById(id).textContent='n/d');
     ['cStdMix','cPunMix','cRisPct'].forEach(id=>document.getElementById(id).textContent='');
-    note.textContent='Per il confronto al target servono almeno una matrice non-effluente (coltura/FORSU) e un effluente zootecnico.';
+    note.textContent='Per il confronto a parità di saving servono almeno una matrice non-effluente (coltura/FORSU) e un effluente zootecnico.';
     return;
   }
-  note.innerHTML='Il confronto ottimizza il mix coltura↔effluente per centrare il target di saving ('+(target*100).toFixed(0)+'%), a produzione invariata — indipendentemente dalle tonnellate inserite sopra. È il valore della perizia GHG puntuale: stessa sostenibilità, meno effluente, meno costo.';
-  const Emix_t=EF*(1-target);
-  // costo per energia (€/Sm³CH4) e categoria-rappresentativa, pesati sull'energia attuale del gruppo
-  function grp(arr){
-    let en=arr.reduce((s,m)=>s+m.energia,0)||1;
-    let cpe=arr.reduce((s,m)=>s+(m.energia/en)*(m.costo/m.resa),0); // €/Sm³CH4
-    // categoria dominante per l'emissione (per energia)
-    let domCat=arr.reduce((a,b)=>a.energia>=b.energia?a:b).cat;
-    return {cpe,domCat};
-  }
+  const sv=(saving0*100).toFixed(1)+'%';
+  note.innerHTML='Stesso saving (<b>'+sv+'</b>) nei due scenari, a produzione invariata: cambia solo il mix coltura↔effluente. È il valore della perizia GHG puntuale — stessa sostenibilità, meno effluente, meno costo.';
+  function grp(arr){let en=arr.reduce((s,m)=>s+m.energia,0)||1;let cpe=arr.reduce((s,m)=>s+(m.energia/en)*(m.costo/m.resa),0);let domCat=arr.reduce((a,b)=>a.energia>=b.energia?a:b).cat;return {cpe,domCat};}
   const gc=grp(col), ge=grp(eff);
+  const rc=repResa('coltura'), re=repResa('effluente');
   function scenario(mode){
     const g={mode,ecColtura:+document.getElementById('ecColtura').value,credEff:+document.getElementById('credEff').value,etdEff:+document.getElementById('etdEff').value};
     const Ecol=Emat(gc.domCat,c,g), Eeff=Emat('effluente',c,g);
-    let xe=(Ecol-Emix_t)/(Ecol-Eeff); // frazione energia effluente
-    xe=Math.max(0,Math.min(1,xe));
+    let xe=(Ecol-Emix0)/(Ecol-Eeff); xe=Math.max(0,Math.min(1,xe)); // a parità di E_mix0
     const enEff=xe*CH4, enCol=(1-xe)*CH4;
-    const costo=enCol*gc.cpe+enEff*ge.cpe;
-    return {xe,costo,Ecol,Eeff};
+    return {xe,costo:enCol*gc.cpe+enEff*ge.cpe,Ecol,Eeff,tCol:rc>0?enCol/rc:0,tEff:re>0?enEff/re:0,ws:wsFromXe(xe,gc,ge)};
   }
   const S=scenario('standard'), P=scenario('puntuale');
   const ris=S.costo-P.costo;
   document.getElementById('cStd').textContent=fmt0(S.costo)+' €';
   document.getElementById('cPun').textContent=fmt0(P.costo)+' €';
   document.getElementById('cRis').textContent=(ris>=0?'+':'')+fmt0(ris)+' €';
-  document.getElementById('cStdMix').textContent='effluente '+(wsFromXe(S.xe,gc,ge)*100).toFixed(1)+'% peso · E_col '+S.Ecol.toFixed(1);
-  document.getElementById('cPunMix').textContent='effluente '+(wsFromXe(P.xe,gc,ge)*100).toFixed(1)+'% peso · E_col '+P.Ecol.toFixed(1);
-  document.getElementById('cRisPct').textContent=S.costo>0?('−'+(ris/S.costo*100).toFixed(1)+'% sul costo standard'):'';
+  document.getElementById('cStdMix').textContent='saving '+sv+' · '+fmt0(S.tCol)+' t coltura · '+fmt0(S.tEff)+' t effluente ('+(S.ws*100).toFixed(0)+'% peso)';
+  document.getElementById('cPunMix').textContent='saving '+sv+' · '+fmt0(P.tCol)+' t coltura · '+fmt0(P.tEff)+' t effluente ('+(P.ws*100).toFixed(0)+'% peso)';
+  document.getElementById('cRisPct').textContent=(S.costo>0?('−'+(ris/S.costo*100).toFixed(1)+'% · stesso saving '+sv):'');
 }
 // converte frazione energia effluente -> frazione peso (servono rese rappresentative)
 function wsFromXe(xe,gc,ge){
