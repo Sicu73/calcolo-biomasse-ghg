@@ -139,7 +139,7 @@
   <div>
     <div class="card">
       <h2>Risultato annuo</h2>
-      <div style="margin-bottom:12px"><span id="badgeTarget" class="badge"></span><span id="badgeLegge" class="badge"></span></div>
+      <div style="margin-bottom:12px"><span id="badgeTarget" class="badge"></span></div>
       <div class="kpis">
         <div class="kpi save"><div class="lab">Risparmio GHG</div><div class="val" id="kSave">—</div><div class="sub" id="kEmix"></div></div>
         <div class="kpi cost"><div class="lab">Costo biomassa</div><div class="val" id="kCost">—</div><div class="sub" id="kCostSm3"></div></div>
@@ -282,10 +282,9 @@ function calc(){
   document.getElementById('kProd').textContent=fmt0(netto);
 
   // badge
-  const bt=document.getElementById('badgeTarget'), bl=document.getElementById('badgeLegge');
-  const okT=saving>=target-1e-9, okL=saving>=0.70-1e-9;
+  const bt=document.getElementById('badgeTarget');
+  const okT=saving>=target-1e-9;
   bt.className='badge '+(okT?'ok':'no'); bt.textContent=(okT?'✓ ':'✗ ')+'Target '+(target*100).toFixed(0)+'%';
-  bl.className='badge '+(okL?'ok':'no'); bl.textContent=(okL?'✓ ':'✗ ')+'Soglia legge 70%';
 
   // dettaglio
   let h='';
