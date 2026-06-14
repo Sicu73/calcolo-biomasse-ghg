@@ -101,12 +101,16 @@
           <select id="offgas"><option>S/C OffG</option><option selected>UpG &lt;1%</option><option>UpG &lt;0,2%</option><option>C/C OffG</option></select></div>
       </div>
       <div class="grid2">
-        <div><label>Portata lorda (Sm³/h)</label><input id="portata" type="number" value="400" step="10"></div>
+        <div><label>Portata netta (Sm³/h)</label><input id="portata" type="number" value="300" step="10"></div>
         <div><label>Ore di funzionamento (h/anno)</label><input id="ore" type="number" value="8000" step="100"></div>
       </div>
       <div class="grid2">
-        <div><label>Biometano netto (Sm³/anno) — auto = lordo × resa</label><input id="nettoOut" type="text" readonly tabindex="-1" style="background:var(--greenbg);font-weight:700;color:var(--greend)"></div>
+        <div><label>Biometano netto (Sm³/anno) — auto = portata × ore</label><input id="nettoOut" type="text" readonly tabindex="-1" style="background:var(--greenbg);font-weight:700;color:var(--greend)"></div>
+        <div><label>Biometano lordo (Sm³/anno) — auto = netto / resa</label><input id="lordoOut" type="text" readonly tabindex="-1" style="background:var(--greenbg);font-weight:700;color:var(--greend)"></div>
+      </div>
+      <div class="grid2">
         <div><label>Tariffa biometano (€/MWh)</label><input id="tariffa" type="number" value="122.81" step="0.01"></div>
+        <div></div>
       </div>
       <div class="pill" id="prodCheck"></div>
     </div>
@@ -213,7 +217,7 @@ function resetCaso(){
   document.getElementById('regime').value='rinnovabile';
   document.getElementById('dig').value='C30';
   document.getElementById('offgas').value='UpG <1%';
-  document.getElementById('portata').value=400;
+  document.getElementById('portata').value=300;
   document.getElementById('ore').value=8000;
   setGhg('standard'); renderMat(); calc();
 }
@@ -259,11 +263,12 @@ function calc(){
   // mix INSERITO = definisce il RAPPORTO del mix, le rese e i prezzi
   let CH4=0;
   matrici.forEach(m=>{m.energia=m.ton*m.resa; CH4+=m.energia;});
-  // LORDO prodotto = portata lorda × ore (capacità impianto, FISSA; non dipende dalla resa)
-  const gross=(+document.getElementById('portata').value)*(+document.getElementById('ore').value);
-  // netto in rete = lordo × resa (output; varia con la resa). In config rinnovabile tutto il lordo è rinnovabile.
-  const netto=gross*resaImp;
-  const factor = CH4>0 ? gross/CH4 : 0; // scala il mix inserito al lordo
+  // netto in rete = portata × ore (inserito a mano)
+  const netto=(+document.getElementById('portata').value)*(+document.getElementById('ore').value);
+  // LORDO da produrre = netto / resa = netto + ausiliari (in config rinnovabile tutto rinnovabile).
+  // La biomassa CONSUMATA deriva dal LORDO, non dal netto.
+  const gross = resaImp>0 ? netto/resaImp : 0;
+  const factor = CH4>0 ? gross/CH4 : 0; // scala il mix inserito al lordo da produrre
   // E_mix standard = riferimento iso-GHG (uguale nelle due modalità)
   let Emix0=0;
   matrici.forEach(m=>{m.quota=CH4>0?m.energia/CH4:0; m.Estd=Emat(m.cat,c,gStd); Emix0+=m.quota*m.Estd;});
@@ -291,6 +296,7 @@ function calc(){
   document.getElementById('kCostSm3').textContent=costoSm3.toFixed(3)+' €/Sm³ netto';
   document.getElementById('kProd').textContent=fmt0(netto);
   document.getElementById('nettoOut').value=fmt0(netto)+' Sm³/anno';
+  document.getElementById('lordoOut').value=fmt0(gross)+' Sm³/anno';
 
   // badge
   const bt=document.getElementById('badgeTarget');
@@ -309,10 +315,10 @@ function calc(){
   else if(ghgMode==='puntuale') rn.textContent='Per tenere lo stesso saving coi valori puntuali servono una coltura/FORSU e un effluente: qui è mostrato il mix inserito coi valori puntuali.';
   else rn.textContent='';
 
-  // il LORDO (portata × ore) è fisso e guida la biomassa; la resa cambia solo il netto
+  // il LORDO (netto + ausiliari) guida la biomassa consumata
   const aux=gross-netto;
   document.getElementById('prodCheck').textContent=
-    `Lordo prodotto = portata × ore = ${fmt0(gross)} Sm³/anno (fisso). Netto in rete = lordo × resa = ${fmt0(netto)} (ausiliari ${fmt0(aux)}). Il costo è sul lordo → NON cambia con la resa; cambia il netto.`;
+    `Lordo da produrre = netto / resa = ${fmt0(gross)} Sm³/anno  (netto ${fmt0(netto)} + ausiliari ${fmt0(aux)}). In config rinnovabile è tutta biomassa rinnovabile. Le tonnellate mostrate sono il consumo annuo per il lordo.`;
 
   confronto(EF,Emix0,gross,c);
 }
