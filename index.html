@@ -315,7 +315,7 @@ function buildMix(EmixT,lordo,c,g){
   const col=matrici.filter(m=>m.cat!=='effluente');
   const eff=matrici.filter(m=>m.cat==='effluente');
   if(col.length===0||eff.length===0||lordo<=0){
-    const rows=matrici.map(m=>{const en=matrici.length?lordo/matrici.length:0;const ton=m.resa>0?en/m.resa:0;return {nome:m.nome,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g),costoTot:ton*m.costo};});
+    const rows=matrici.map(m=>{const en=matrici.length?lordo/matrici.length:0;const ton=m.resa>0?en/m.resa:0;return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g),costoTot:ton*m.costo};});
     return {rows,ok:false};
   }
   // GHG medio per gruppo (così l'E_mix risultante = EmixT esatto)
@@ -327,7 +327,7 @@ function buildMix(EmixT,lordo,c,g){
     const isEff=m.cat==='effluente';
     const en=isEff?(enEff/eff.length):(enCol/col.length); // ripartizione uniforme nel gruppo
     const ton=m.resa>0?en/m.resa:0;
-    return {nome:m.nome,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g),costoTot:ton*m.costo};
+    return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g),costoTot:ton*m.costo};
   });
   return {rows,ok:true};
 }
@@ -349,38 +349,33 @@ function rebalance(EmixTarget,c,CH4,gPun){
   return {rows,xe};
 }
 
-/* ===== Confronto Standard vs Puntuale a PARITÀ DI SAVING (iso-GHG) ===== */
-function confronto(EF,Emix0,CH4,c){
+/* ===== Confronto Standard vs Puntuale a parità di SAVING e di LORDO (stesso buildMix del pannello) ===== */
+function confronto(EF,EmixT,lordo,c){
   const note=document.getElementById('cmpNote');
-  const saving0=EF>0?(EF-Emix0)/EF:0;
   const col=matrici.filter(m=>m.cat!=='effluente');
   const eff=matrici.filter(m=>m.cat==='effluente');
-  if(col.length===0||eff.length===0||CH4<=0){
+  if(col.length===0||eff.length===0||lordo<=0){
     ['cStd','cPun','cRis'].forEach(id=>document.getElementById(id).textContent='n/d');
     ['cStdMix','cPunMix','cRisPct'].forEach(id=>document.getElementById(id).textContent='');
-    note.textContent='Per il confronto a parità di saving servono almeno una matrice non-effluente (coltura/FORSU) e un effluente zootecnico.';
+    note.textContent='Per il confronto servono almeno una coltura/FORSU e un effluente.';
     return;
   }
-  const sv=(saving0*100).toFixed(1)+'%';
-  note.innerHTML='Stesso saving (<b>'+sv+'</b>) nei due scenari, a produzione invariata: cambia solo il mix coltura↔effluente. È il valore della perizia GHG puntuale — stessa sostenibilità, meno effluente, meno costo.';
-  function grp(arr){let en=arr.reduce((s,m)=>s+m.energia,0)||1;let cpe=arr.reduce((s,m)=>s+(m.energia/en)*(m.costo/m.resa),0);let domCat=arr.reduce((a,b)=>a.energia>=b.energia?a:b).cat;return {cpe,domCat};}
-  const gc=grp(col), ge=grp(eff);
-  const rc=repResa('coltura'), re=repResa('effluente');
-  function scenario(mode){
-    const g={mode,ecColtura:+document.getElementById('ecColtura').value,credEff:+document.getElementById('credEff').value,etdEff:+document.getElementById('etdEff').value};
-    const Ecol=Emat(gc.domCat,c,g), Eeff=Emat('effluente',c,g);
-    let xe=(Ecol-Emix0)/(Ecol-Eeff); xe=Math.max(0,Math.min(1,xe)); // a parità di E_mix0
-    const enEff=xe*CH4, enCol=(1-xe)*CH4;
-    return {xe,costo:enCol*gc.cpe+enEff*ge.cpe,Ecol,Eeff,tCol:rc>0?enCol/rc:0,tEff:re>0?enEff/re:0,ws:wsFromXe(xe,gc,ge)};
-  }
-  const S=scenario('standard'), P=scenario('puntuale');
-  const ris=S.costo-P.costo;
-  document.getElementById('cStd').textContent=fmt0(S.costo)+' €';
-  document.getElementById('cPun').textContent=fmt0(P.costo)+' €';
+  const sv=(EF>0?((EF-EmixT)/EF*100):0).toFixed(1)+'%';
+  note.innerHTML='Stesso saving (<b>'+sv+'</b>) e stesso lordo: cambia solo il mix coltura↔effluente coi valori standard vs puntuali. <b>Stessa sostenibilità, meno effluente, meno costo.</b>';
+  const gPun=ghgParams(); gPun.mode='puntuale';
+  const S=buildMix(EmixT,lordo,c,{mode:'standard'}).rows;
+  const P=buildMix(EmixT,lordo,c,gPun).rows;
+  const sum=(rows,f)=>rows.reduce((s,r)=>s+f(r),0);
+  const costS=sum(S,r=>r.costoTot), costP=sum(P,r=>r.costoTot), ris=costS-costP;
+  const tC=rows=>sum(rows,r=>r.cat!=='effluente'?r.ton:0);
+  const tE=rows=>sum(rows,r=>r.cat==='effluente'?r.ton:0);
+  const ws=rows=>{const a=tC(rows),b=tE(rows);return (a+b)>0?b/(a+b):0;};
+  document.getElementById('cStd').textContent=fmt0(costS)+' €';
+  document.getElementById('cPun').textContent=fmt0(costP)+' €';
   document.getElementById('cRis').textContent=(ris>=0?'+':'')+fmt0(ris)+' €';
-  document.getElementById('cStdMix').textContent='saving '+sv+' · '+fmt0(S.tCol)+' t coltura · '+fmt0(S.tEff)+' t effluente ('+(S.ws*100).toFixed(0)+'% peso)';
-  document.getElementById('cPunMix').textContent='saving '+sv+' · '+fmt0(P.tCol)+' t coltura · '+fmt0(P.tEff)+' t effluente ('+(P.ws*100).toFixed(0)+'% peso)';
-  document.getElementById('cRisPct').textContent=(S.costo>0?('−'+(ris/S.costo*100).toFixed(1)+'% · stesso saving '+sv):'');
+  document.getElementById('cStdMix').textContent='saving '+sv+' · '+fmt0(tC(S))+' t coltura · '+fmt0(tE(S))+' t effluente ('+(ws(S)*100).toFixed(0)+'% peso)';
+  document.getElementById('cPunMix').textContent='saving '+sv+' · '+fmt0(tC(P))+' t coltura · '+fmt0(tE(P))+' t effluente ('+(ws(P)*100).toFixed(0)+'% peso)';
+  document.getElementById('cRisPct').textContent=(costS>0?('−'+(ris/costS*100).toFixed(1)+'% · stesso saving '+sv):'');
 }
 // converte frazione energia effluente -> frazione peso (servono rese rappresentative)
 function wsFromXe(xe,gc,ge){
