@@ -118,7 +118,7 @@
     <div class="card">
       <h2>Biomasse — tonnellate / anno</h2>
       <table class="mat"><thead><tr>
-        <th style="width:26%">Matrice</th><th style="width:22%">Categoria</th><th>Resa<br>Sm³CH₄/t</th><th>Costo<br>€/t</th><th>t/anno</th><th></th>
+        <th style="width:30%">Matrice</th><th style="width:24%">Categoria</th><th>Resa<br>Sm³CH₄/t</th><th>Costo<br>€/t</th><th></th>
       </tr></thead><tbody id="matBody"></tbody></table>
       <div class="btnrow">
         <button class="btn btn-add" onclick="addRow()">+ Aggiungi matrice</button>
@@ -265,32 +265,18 @@ function calc(){
   const c=cfg();
   const gStd={mode:'standard'};
   const gPun=ghgParams(); gPun.mode='puntuale';
+  const g=(ghgMode==='puntuale')?gPun:gStd;
 
-  // mix INSERITO = definisce il RAPPORTO del mix, le rese e i prezzi
-  let CH4=0;
-  matrici.forEach(m=>{m.energia=m.ton*m.resa; CH4+=m.energia;});
-  // netto in rete = portata × ore (inserito a mano)
+  // CATENA: portata × ore = netto ; lordo = netto / resa ; target GHG = minimo di legge
   const netto=(+document.getElementById('portata').value)*(+document.getElementById('ore').value);
-  // LORDO da produrre = netto / resa = netto + ausiliari (in config rinnovabile tutto rinnovabile).
-  // La biomassa CONSUMATA deriva dal LORDO, non dal netto.
-  const gross = resaImp>0 ? netto/resaImp : 0;
-  const factor = CH4>0 ? gross/CH4 : 0; // scala il mix inserito al lordo da produrre
-  // E_mix standard = riferimento iso-GHG (uguale nelle due modalità)
-  let Emix0=0;
-  matrici.forEach(m=>{m.quota=CH4>0?m.energia/CH4:0; m.Estd=Emat(m.cat,c,gStd); Emix0+=m.quota*m.Estd;});
+  const gross=resaImp>0?netto/resaImp:0;       // lordo = netto + ausiliari
+  const EmixT=EF*(1-target);                    // E_mix che centra il GHG minimo di legge
 
-  // righe = biomassa CONSUMATA per il lordo; in 'puntuale' mix ribilanciato a parità di E_mix0
-  let rows=null, rebilanciato=false;
-  if(ghgMode==='puntuale'){
-    const reb=rebalance(Emix0,c,gross,gPun);
-    if(reb){ rows=reb.rows; rebilanciato=true; }
-  }
-  if(!rows){
-    rows=matrici.map(m=>({nome:m.nome,ton:m.ton*factor,energia:m.energia*factor,quota:m.quota,
-      E:(ghgMode==='puntuale'?Emat(m.cat,c,gPun):m.Estd),costoTot:m.ton*factor*m.costo}));
-  }
+  // TONNELLATE CALCOLATE: dimensiona il mix per centrare EmixT e produrre il lordo
+  const built=buildMix(EmixT,gross,c,g);
+  const rows=built.rows;
+  rows.forEach((r,i)=>{ if(matrici[i]){ matrici[i].ton=r.ton; matrici[i].energia=r.energia; } });
 
-  // E_mix e costo EFFETTIVI del mix mostrato
   let Emix=0,costo=0,totTon=0,totEn=0;
   rows.forEach(r=>{Emix+=r.quota*r.E; costo+=r.costoTot; totTon+=r.ton; totEn+=r.energia;});
   const saving=EF>0?(EF-Emix)/EF:0;
@@ -304,29 +290,46 @@ function calc(){
   document.getElementById('nettoOut').value=fmt0(netto)+' Sm³/anno';
   document.getElementById('lordoOut').value=fmt0(gross)+' Sm³/anno';
 
-  // badge
   const bt=document.getElementById('badgeTarget');
   const okT=saving>=target-1e-9;
   bt.className='badge '+(okT?'ok':'no'); bt.textContent=(okT?'✓ ':'✗ ')+'Target '+(target*100).toFixed(0)+'%';
 
-  // dettaglio
   let h='';
   rows.forEach(r=>{h+=`<tr><td>${esc(r.nome)}</td><td>${fmt0(r.ton)}</td><td>${fmt0(r.energia)}</td><td>${(r.quota*100).toFixed(1)}%</td><td>${r.E.toFixed(1)}</td></tr>`;});
   h+=`<tr><td>TOTALE</td><td>${fmt0(totTon)}</td><td>${fmt0(totEn)}</td><td>100%</td><td>${Emix.toFixed(1)}</td></tr>`;
   document.getElementById('detBody').innerHTML=h;
 
-  // nota ribilanciamento
   const rn=document.getElementById('rebNote');
-  if(rebilanciato) rn.textContent='Modalità puntuale: mix ribilanciato a parità di saving ('+(saving*100).toFixed(1)+'%, identico allo standard) — meno effluente, più coltura, costo più basso. Le tonnellate a sinistra restano il mix standard inserito.';
-  else if(ghgMode==='puntuale') rn.textContent='Per tenere lo stesso saving coi valori puntuali servono una coltura/FORSU e un effluente: qui è mostrato il mix inserito coi valori puntuali.';
-  else rn.textContent='';
+  if(built.ok) rn.textContent='Tonnellate CALCOLATE per centrare il GHG minimo di legge ('+(target*100).toFixed(0)+'%, saving '+(saving*100).toFixed(1)+'%) e produrre il lordo. Cambiando matrici/rese/impianto si ricalcolano.';
+  else rn.textContent='Per dimensionare il mix al target servono almeno una coltura/FORSU e un effluente.';
 
-  // il LORDO (netto + ausiliari) guida la biomassa consumata
   const aux=gross-netto;
   document.getElementById('prodCheck').textContent=
-    `Lordo da produrre = netto / resa = ${fmt0(gross)} Sm³/anno  (netto ${fmt0(netto)} + ausiliari ${fmt0(aux)}). In config rinnovabile è tutta biomassa rinnovabile. Le tonnellate mostrate sono il consumo annuo per il lordo.`;
+    `Lordo prodotto = netto / resa = ${fmt0(gross)} Sm³/anno (netto ${fmt0(netto)} + ausiliari ${fmt0(aux)}). Le tonnellate sono dimensionate sul lordo.`;
 
-  confronto(EF,Emix0,gross,c);
+  confronto(EF,EmixT,gross,c);
+}
+
+/* Dimensiona il mix coltura↔effluente per CENTRARE E_mix = EmixT e PRODURRE il lordo */
+function buildMix(EmixT,lordo,c,g){
+  const col=matrici.filter(m=>m.cat!=='effluente');
+  const eff=matrici.filter(m=>m.cat==='effluente');
+  if(col.length===0||eff.length===0||lordo<=0){
+    const rows=matrici.map(m=>{const en=matrici.length?lordo/matrici.length:0;const ton=m.resa>0?en/m.resa:0;return {nome:m.nome,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g),costoTot:ton*m.costo};});
+    return {rows,ok:false};
+  }
+  // GHG medio per gruppo (così l'E_mix risultante = EmixT esatto)
+  const Ecol=col.reduce((s,m)=>s+Emat(m.cat,c,g),0)/col.length;
+  const Eeff=eff.reduce((s,m)=>s+Emat(m.cat,c,g),0)/eff.length;
+  let xe=(Ecol===Eeff)?0:(Ecol-EmixT)/(Ecol-Eeff); xe=Math.max(0,Math.min(1,xe));
+  const enCol=(1-xe)*lordo, enEff=xe*lordo;     // energia ripartita sul LORDO
+  const rows=matrici.map(m=>{
+    const isEff=m.cat==='effluente';
+    const en=isEff?(enEff/eff.length):(enCol/col.length); // ripartizione uniforme nel gruppo
+    const ton=m.resa>0?en/m.resa:0;
+    return {nome:m.nome,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g),costoTot:ton*m.costo};
+  });
+  return {rows,ok:true};
 }
 
 /* Ribilancia il mix coltura↔effluente coi valori puntuali per tenere E_mix = EmixTarget */
@@ -406,7 +409,6 @@ function renderMat(){
        </select></td>
      <td><input type="number" step="0.1" value="${m.resa}" onchange="upd(${i},'resa',+this.value)"></td>
      <td><input type="number" step="0.5" value="${m.costo}" onchange="upd(${i},'costo',+this.value)"></td>
-     <td><input type="number" step="100" value="${m.ton}" onchange="upd(${i},'ton',+this.value)"></td>
      <td><button class="btn-x" onclick="delRow(${i})" title="Rimuovi">×</button></td>
     </tr>`;
   });
