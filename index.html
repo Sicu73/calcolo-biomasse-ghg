@@ -134,11 +134,11 @@
       </div>
       <div id="puntFields" class="hide" style="margin-top:10px">
         <div class="grid3">
-          <div><label>ec coltura</label><input id="ecColtura" type="number" value="12" step="0.1"></div>
-          <div><label>credito effluente</label><input id="credEff" type="number" value="-135" step="0.1"></div>
-          <div><label>etd effluente</label><input id="etdEff" type="number" value="0.5" step="0.1"></div>
+          <div><label>ec coltura −% vs std</label><input id="migEc" type="number" value="41.46" step="0.1"></div>
+          <div><label>credito effluente +% vs std</label><input id="migCred" type="number" value="5.8" step="0.1"></div>
+          <div><label>etd trasporto −% vs std</label><input id="migEtd" type="number" value="50" step="1"></div>
         </div>
-        <div class="note">I valori puntuali sostituiscono solo i termini propri della biomassa (ec, credito, trasporto). I termini d'impianto (lavorazione, upgrading, penalità 30 gg) restano invariati. Sono ipotesi da documentare in perizia.</div>
+        <div class="note">I valori puntuali sono un <b>miglioramento % rispetto al valore standard di tabella</b>, applicato alla categoria scelta: così <b>ogni matrice e ogni configurazione</b> parte dal proprio standard e lo migliora → puntuale <b>sempre favorevole</b> (mai peggiore dello standard) e coerente. I termini d'impianto (lavorazione, upgrading, penalità 30 gg) restano invariati. Default = perizia caso validato (mais/liquame). Ipotesi da documentare in perizia.</div>
       </div>
     </div>
   </div>
@@ -236,9 +236,9 @@ function cfg(){return{
 };}
 function ghgParams(){return{
   mode:ghgMode,
-  ecColtura:+document.getElementById('ecColtura').value,
-  credEff:+document.getElementById('credEff').value,
-  etdEff:+document.getElementById('etdEff').value
+  migEc:+document.getElementById('migEc').value,    // % riduzione ec coltura vs standard
+  migCred:+document.getElementById('migCred').value, // % maggior credito effluente vs standard
+  migEtd:+document.getElementById('migEtd').value    // % riduzione trasporto etd effluente vs standard
 };}
 // Emissione di una categoria, gCO2eq/MJ
 function Emat(cat,c,g){
@@ -247,17 +247,20 @@ function Emat(cat,c,g){
   const upgr=UPGR[c.offgas];
   let ec=b.ec,cred=b.cred,etd=b.etd,lavor=b.lavor;
   if(g.mode==='puntuale'){
-    if(cat==='coltura')ec=g.ecColtura;
-    if(cat==='effluente'){cred=g.credEff;etd=g.etdEff;}
+    // miglioramento % SUL valore standard della categoria -> sempre favorevole, adatta a matrice e config
+    if(cat==='coltura')   ec  = ec  * (1 - (g.migEc||0)/100);     // emissioni coltivazione più basse
+    if(cat==='effluente'){ cred = cred * (1 + (g.migCred||0)/100); // credito (negativo) più favorevole
+                           etd  = etd  * (1 - (g.migEtd||0)/100); } // trasporto reale più corto
   }
   if(c.dig==='C30')return (ec+cred+(lavor+upgr+1.6))/0.9+etd;
   return ec+cred+lavor+upgr+etd; // Dig.A o Dig.C 60gg: nessuna penalità
 }
 
-/* ===================== CALCOLO FORWARD (iso-GHG) ===================== */
-/* Il saving NON cambia tra standard e puntuale: è il GHG di riferimento.
-   In 'puntuale' il mix viene ribilanciato per tenere lo stesso E_mix dello standard,
-   cambiando solo tonnellate e costo (meno effluente, più coltura). */
+/* ===================== CALCOLO FORWARD (minimo costo, saving >= target) ===================== */
+/* Standard e puntuale rispettano lo STESSO vincolo di legge (saving >= target).
+   Il mix è quello a MINIMO COSTO che rispetta il vincolo: in 'puntuale' i dati biomasse
+   migliori allargano le possibilità di scelta -> il costo non può mai essere superiore
+   allo standard. È QUESTO il valore della perizia: stessa sostenibilità, meno costo. */
 function calc(){
   const EF=+document.getElementById('ef').value;
   const target=+document.getElementById('target').value/100;
@@ -300,7 +303,7 @@ function calc(){
   document.getElementById('detBody').innerHTML=h;
 
   const rn=document.getElementById('rebNote');
-  if(built.ok) rn.textContent='Tonnellate CALCOLATE per centrare il GHG minimo di legge ('+(target*100).toFixed(0)+'%, saving '+(saving*100).toFixed(1)+'%) e produrre il lordo. Cambiando matrici/rese/impianto si ricalcolano.';
+  if(built.ok) rn.textContent='Tonnellate = mix a MINIMO COSTO con saving ≥ '+(target*100).toFixed(0)+'% (saving effettivo '+(saving*100).toFixed(1)+'%), a produzione lorda invariata. Cambiando matrici/rese/costi/impianto si ricalcolano.';
   else rn.textContent='Per dimensionare il mix al target servono almeno una coltura/FORSU e un effluente.';
 
   const aux=gross-netto;
@@ -318,10 +321,18 @@ function buildMix(EmixT,lordo,c,g){
     const rows=matrici.map(m=>{const en=matrici.length?lordo/matrici.length:0;const ton=m.resa>0?en/m.resa:0;return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g),costoTot:ton*m.costo};});
     return {rows,ok:false};
   }
-  // GHG medio per gruppo (così l'E_mix risultante = EmixT esatto)
+  // GHG medio per gruppo
   const Ecol=col.reduce((s,m)=>s+Emat(m.cat,c,g),0)/col.length;
   const Eeff=eff.reduce((s,m)=>s+Emat(m.cat,c,g),0)/eff.length;
-  let xe=(Ecol===Eeff)?0:(Ecol-EmixT)/(Ecol-Eeff); xe=Math.max(0,Math.min(1,xe));
+  // quota minima di effluente (in energia) per rispettare il target GHG: E_mix <= EmixT
+  let xeBind=(Ecol===Eeff)?0:(Ecol-EmixT)/(Ecol-Eeff); xeBind=Math.max(0,Math.min(1,xeBind));
+  // costo per unità di energia di ciascun gruppo (split uniforme nel gruppo)
+  const cpe=arr=>arr.reduce((s,m)=>s+(m.resa>0?m.costo/m.resa:0),0)/arr.length;
+  const cc=cpe(col), ce=cpe(eff);
+  // MIX A MINIMO COSTO con saving >= target: se l'effluente è più economico per unità di
+  // energia usane il massimo, altrimenti il minimo che rispetta il target. Così, a parità di
+  // matrici, il costo puntuale (E migliori -> xeBind più basso) <= costo standard, sempre.
+  const xe=(ce<cc)?1:xeBind;
   const enCol=(1-xe)*lordo, enEff=xe*lordo;     // energia ripartita sul LORDO
   const rows=matrici.map(m=>{
     const isEff=m.cat==='effluente';
@@ -360,12 +371,15 @@ function confronto(EF,EmixT,lordo,c){
     note.textContent='Per il confronto servono almeno una coltura/FORSU e un effluente.';
     return;
   }
-  const sv=(EF>0?((EF-EmixT)/EF*100):0).toFixed(1)+'%';
-  note.innerHTML='Stesso saving (<b>'+sv+'</b>) e stesso lordo: cambia solo il mix coltura↔effluente coi valori standard vs puntuali. <b>Stessa sostenibilità, meno effluente, meno costo.</b>';
+  const tgt=(EF>0?((EF-EmixT)/EF*100):0).toFixed(0);
+  note.innerHTML='Mix a <b>minimo costo</b> con saving ≥ <b>'+tgt+'%</b> nei due scenari, a produzione lorda invariata. Coi <b>valori puntuali</b> (dati biomasse migliori) il costo non è mai superiore allo standard: <b>stessa sostenibilità, meno costo.</b>';
   const gPun=ghgParams(); gPun.mode='puntuale';
   const S=buildMix(EmixT,lordo,c,{mode:'standard'}).rows;
   const P=buildMix(EmixT,lordo,c,gPun).rows;
   const sum=(rows,f)=>rows.reduce((s,r)=>s+f(r),0);
+  const emixOf=rows=>sum(rows,r=>r.quota*r.E);
+  const svOf=rows=>(EF>0?(EF-emixOf(rows))/EF*100:0);
+  const svS=svOf(S), svP=svOf(P);
   const costS=sum(S,r=>r.costoTot), costP=sum(P,r=>r.costoTot), ris=costS-costP;
   const tC=rows=>sum(rows,r=>r.cat!=='effluente'?r.ton:0);
   const tE=rows=>sum(rows,r=>r.cat==='effluente'?r.ton:0);
@@ -373,9 +387,9 @@ function confronto(EF,EmixT,lordo,c){
   document.getElementById('cStd').textContent=fmt0(costS)+' €';
   document.getElementById('cPun').textContent=fmt0(costP)+' €';
   document.getElementById('cRis').textContent=(ris>=0?'+':'')+fmt0(ris)+' €';
-  document.getElementById('cStdMix').textContent='saving '+sv+' · '+fmt0(tC(S))+' t coltura · '+fmt0(tE(S))+' t effluente ('+(ws(S)*100).toFixed(0)+'% peso)';
-  document.getElementById('cPunMix').textContent='saving '+sv+' · '+fmt0(tC(P))+' t coltura · '+fmt0(tE(P))+' t effluente ('+(ws(P)*100).toFixed(0)+'% peso)';
-  document.getElementById('cRisPct').textContent=(costS>0?('−'+(ris/costS*100).toFixed(1)+'% · stesso saving '+sv):'');
+  document.getElementById('cStdMix').textContent='saving '+svS.toFixed(1)+'% · '+fmt0(tC(S))+' t coltura · '+fmt0(tE(S))+' t effluente ('+(ws(S)*100).toFixed(0)+'% peso)';
+  document.getElementById('cPunMix').textContent='saving '+svP.toFixed(1)+'% · '+fmt0(tC(P))+' t coltura · '+fmt0(tE(P))+' t effluente ('+(ws(P)*100).toFixed(0)+'% peso)';
+  document.getElementById('cRisPct').textContent=(costS>0?('−'+(ris/costS*100).toFixed(1)+'% sul costo biomassa'):'');
 }
 // converte frazione energia effluente -> frazione peso (servono rese rappresentative)
 function wsFromXe(xe,gc,ge){
@@ -425,7 +439,7 @@ function fmt0(n){return Math.round(n).toLocaleString('it-IT');}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // listeners sui campi impianto
-['resaImp','target','regime','dig','offgas','portata','ore','tariffa','ecColtura','credEff','etdEff'].forEach(id=>{
+['resaImp','target','regime','dig','offgas','portata','ore','tariffa','migEc','migCred','migEtd'].forEach(id=>{
   document.getElementById(id).addEventListener('input',calc);
 });
 // Comparatore EF <-> target soglia di legge: 80 (altri usi/rete) -> 80% ; 94 (trasporti) -> 65%
