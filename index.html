@@ -419,8 +419,14 @@ function fmt0(n){return Math.round(n).toLocaleString('it-IT');}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // listeners sui campi impianto
-['resaImp','ef','target','regime','dig','offgas','portata','ore','tariffa','ecColtura','credEff','etdEff'].forEach(id=>{
+['resaImp','target','regime','dig','offgas','portata','ore','tariffa','ecColtura','credEff','etdEff'].forEach(id=>{
   document.getElementById(id).addEventListener('input',calc);
+});
+// Comparatore EF <-> target soglia di legge: 80 (altri usi/rete) -> 80% ; 94 (trasporti) -> 65%
+const EF_TARGET={"80":80,"94":65};
+document.getElementById('ef').addEventListener('change',function(){
+  const t=EF_TARGET[this.value]; if(t!==undefined) document.getElementById('target').value=t;
+  calc();
 });
 resetCaso();
 </script>
