@@ -256,11 +256,12 @@ function Emat(cat,c,g){
   return ec+cred+lavor+upgr+etd; // Dig.A o Dig.C 60gg: nessuna penalità
 }
 
-/* ===================== CALCOLO FORWARD (minimo costo, saving >= target) ===================== */
-/* Standard e puntuale rispettano lo STESSO vincolo di legge (saving >= target).
-   Il mix è quello a MINIMO COSTO che rispetta il vincolo: in 'puntuale' i dati biomasse
-   migliori allargano le possibilità di scelta -> il costo non può mai essere superiore
-   allo standard. È QUESTO il valore della perizia: stessa sostenibilità, meno costo. */
+/* ===================== CALCOLO FORWARD (saving = target esatto) ===================== */
+/* Il saving è SEMPRE = target di legge (80%) in entrambi gli scenari: E_mix = EmixT esatto.
+   Il mix coltura/effluente è quello che CENTRA il target. In 'puntuale' i dati biomasse
+   migliori (coltura più pulita, più credito effluente) richiedono MENO effluente per lo
+   stesso 80% -> meno costo (quando l'effluente è l'input più caro per unità di energia).
+   È QUESTO il valore della perizia: stessa sostenibilità (80%), meno costo. */
 function calc(){
   const EF=+document.getElementById('ef').value;
   const target=+document.getElementById('target').value/100;
@@ -303,7 +304,7 @@ function calc(){
   document.getElementById('detBody').innerHTML=h;
 
   const rn=document.getElementById('rebNote');
-  if(built.ok) rn.textContent='Tonnellate = mix a MINIMO COSTO con saving ≥ '+(target*100).toFixed(0)+'% (saving effettivo '+(saving*100).toFixed(1)+'%), a produzione lorda invariata. Cambiando matrici/rese/costi/impianto si ricalcolano.';
+  if(built.ok) rn.textContent='Tonnellate calcolate per centrare il saving '+(target*100).toFixed(0)+'% esatto (effettivo '+(saving*100).toFixed(1)+'%) a produzione lorda invariata. Il puntuale richiede meno effluente per lo stesso saving. Cambiando matrici/rese/costi/impianto si ricalcolano.';
   else rn.textContent='Per dimensionare il mix al target servono almeno una coltura/FORSU e un effluente.';
 
   const aux=gross-netto;
@@ -324,15 +325,9 @@ function buildMix(EmixT,lordo,c,g){
   // GHG medio per gruppo
   const Ecol=col.reduce((s,m)=>s+Emat(m.cat,c,g),0)/col.length;
   const Eeff=eff.reduce((s,m)=>s+Emat(m.cat,c,g),0)/eff.length;
-  // quota minima di effluente (in energia) per rispettare il target GHG: E_mix <= EmixT
-  let xeBind=(Ecol===Eeff)?0:(Ecol-EmixT)/(Ecol-Eeff); xeBind=Math.max(0,Math.min(1,xeBind));
-  // costo per unità di energia di ciascun gruppo (split uniforme nel gruppo)
-  const cpe=arr=>arr.reduce((s,m)=>s+(m.resa>0?m.costo/m.resa:0),0)/arr.length;
-  const cc=cpe(col), ce=cpe(eff);
-  // MIX A MINIMO COSTO con saving >= target: se l'effluente è più economico per unità di
-  // energia usane il massimo, altrimenti il minimo che rispetta il target. Così, a parità di
-  // matrici, il costo puntuale (E migliori -> xeBind più basso) <= costo standard, sempre.
-  const xe=(ce<cc)?1:xeBind;
+  // quota di effluente (energia) che CENTRA il target GHG esatto: E_mix = EmixT -> saving SEMPRE = target.
+  // In puntuale Ecol scende ed Eeff è più negativo -> xe più basso -> serve meno effluente per lo stesso 80%.
+  let xe=(Ecol===Eeff)?0:(Ecol-EmixT)/(Ecol-Eeff); xe=Math.max(0,Math.min(1,xe));
   const enCol=(1-xe)*lordo, enEff=xe*lordo;     // energia ripartita sul LORDO
   const rows=matrici.map(m=>{
     const isEff=m.cat==='effluente';
@@ -372,7 +367,7 @@ function confronto(EF,EmixT,lordo,c){
     return;
   }
   const tgt=(EF>0?((EF-EmixT)/EF*100):0).toFixed(0);
-  note.innerHTML='Mix a <b>minimo costo</b> con saving ≥ <b>'+tgt+'%</b> nei due scenari, a produzione lorda invariata. Coi <b>valori puntuali</b> (dati biomasse migliori) il costo non è mai superiore allo standard: <b>stessa sostenibilità, meno costo.</b>';
+  note.innerHTML='Stesso saving <b>'+tgt+'%</b> e stesso lordo nei due scenari: cambia solo il mix coltura↔effluente coi valori standard vs puntuali. Coi <b>valori puntuali</b> serve <b>meno effluente</b> per lo stesso 80% → <b>stessa sostenibilità, meno costo.</b>';
   const gPun=ghgParams(); gPun.mode='puntuale';
   const S=buildMix(EmixT,lordo,c,{mode:'standard'}).rows;
   const P=buildMix(EmixT,lordo,c,gPun).rows;
