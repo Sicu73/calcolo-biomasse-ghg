@@ -134,11 +134,11 @@
       </div>
       <div id="puntFields" class="hide" style="margin-top:10px">
         <div class="grid3">
-          <div><label>ec coltura −% vs std</label><input id="migEc" type="number" value="41.46" step="0.1"></div>
-          <div><label>credito effluente +% vs std</label><input id="migCred" type="number" value="5.8" step="0.1"></div>
-          <div><label>etd trasporto −% vs std</label><input id="migEtd" type="number" value="50" step="1"></div>
+          <div><label>ec coltivazione −% (coltura)</label><input id="migEc" type="number" value="41.46" step="0.1"></div>
+          <div><label>credito +% (reflui)</label><input id="migCred" type="number" value="5.8" step="0.1"></div>
+          <div><label>trasporto −% (tutte le filiere)</label><input id="migEtd" type="number" value="50" step="1"></div>
         </div>
-        <div class="note">I valori puntuali sono un <b>miglioramento % rispetto al valore standard di tabella</b>, applicato alla categoria scelta: così <b>ogni matrice e ogni configurazione</b> parte dal proprio standard e lo migliora → puntuale <b>sempre favorevole</b> (mai peggiore dello standard) e coerente. I termini d'impianto (lavorazione, upgrading, penalità 30 gg) restano invariati. Default = perizia caso validato (mais/liquame). Ipotesi da documentare in perizia.</div>
+        <div class="note">I valori puntuali sono un <b>miglioramento % rispetto al valore standard di tabella</b>, applicato in modo <b>concorde a ogni filiera</b>: <b>ec</b>→coltura, <b>credito</b>→reflui/effluente, <b>trasporto</b>→tutte (coltura, reflui, sottoprodotti, FORSU). Ogni matrice parte dal proprio standard e lo migliora → puntuale <b>sempre favorevole</b> (mai peggiore). I termini d'impianto (lavorazione, upgrading, penalità 30 gg) restano invariati. Default = perizia caso validato (mais/liquame). Ipotesi da documentare in perizia.</div>
       </div>
     </div>
   </div>
@@ -254,14 +254,14 @@ function Emat(cat,c,g,etdMat){
   const digKey=c.dig==='A'?'A':'C';
   const b=EMIS[c.regime][cat][digKey][c.offgas];
   const upgr=(cat==='sottoprodotti'?UPGR_SOTTO:UPGR)[c.offgas];
-  let ec=b.ec,cred=b.cred,etd=b.etd,lavor=b.lavor;
+  let ec=b.ec,cred=b.cred,lavor=b.lavor;
+  let etd=b.etd+(etdMat||0); // trasporto totale: EMIS + specifico della matrice (sottoprodotti: per classe di umidità)
   if(g.mode==='puntuale'){
-    // miglioramento % SUL valore standard della categoria -> sempre favorevole, adatta a matrice e config
-    if(cat==='coltura')   ec  = ec  * (1 - (g.migEc||0)/100);     // emissioni coltivazione più basse
-    if(cat==='effluente'){ cred = cred * (1 + (g.migCred||0)/100); // credito (negativo) più favorevole
-                           etd  = etd  * (1 - (g.migEtd||0)/100); } // trasporto reale più corto
+    // VALORI PUNTUALI = miglioramento % dei termini propri della biomassa, per OGNI filiera (concorde):
+    if(cat==='coltura')   ec   = ec   * (1 - (g.migEc||0)/100);    // coltura: emissioni di coltivazione più basse
+    if(cat==='effluente') cred = cred * (1 + (g.migCred||0)/100);  // reflui: maggior credito evitato (più negativo)
+    etd = etd * (1 - (g.migEtd||0)/100);                            // trasporto: TUTTE le filiere (coltura/reflui/sottoprodotti/FORSU)
   }
-  etd += (etdMat||0); // trasporto specifico della matrice (sottoprodotti: per classe di umidità)
   if(c.dig==='C30')return (ec+cred+(lavor+upgr+1.6))/0.9+etd;
   return ec+cred+lavor+upgr+etd; // Dig.A o Dig.C 60gg: nessuna penalità
 }
