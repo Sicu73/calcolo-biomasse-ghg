@@ -118,12 +118,13 @@
     <div class="card">
       <h2>Biomasse — tonnellate / anno</h2>
       <table class="mat"><thead><tr>
-        <th style="width:30%">Matrice</th><th style="width:24%">Categoria</th><th>Resa auto<br>Sm³CH₄/t</th><th>Prezzo<br>€/t</th><th></th>
+        <th style="width:26%">Matrice</th><th style="width:20%">Categoria</th><th>Resa auto<br>Sm³CH₄/t</th><th>Prezzo<br>€/t</th><th>Quota<br>% peso</th><th></th>
       </tr></thead><tbody id="matBody"></tbody></table>
       <div class="btnrow">
         <button class="btn btn-add" onclick="addRow()">+ Aggiungi matrice</button>
         <button class="btn btn-reset" onclick="resetSim()">↺ Reimposta scenario</button>
       </div>
+      <div class="note"><b>Quota % peso</b> = peso relativo della matrice <b>entro il suo gruppo</b> (coltura/sottoprodotti ↔ effluente), normalizzata: le tonnellate nel gruppo seguono questo rapporto. Il bilancio coltura↔effluente lo calcola il tool per centrare il <b>saving 80%</b> → imposti le proporzioni, il vincolo GHG resta sempre rispettato.</div>
     </div>
 
     <div class="card">
@@ -224,8 +225,8 @@ let matrici=[];
 function resetSim(){
   // scenario neutro: l'utente sceglie le matrici e imposta il prezzo; resa = standard UNI (auto)
   matrici=[
-    {nome:"Mais",cat:"coltura",resa:116.14,costo:50},
-    {nome:"Liquame suino",cat:"effluente",resa:14.5,costo:8}
+    {nome:"Mais",cat:"coltura",resa:116.14,costo:50,quota:100},
+    {nome:"Liquame suino",cat:"effluente",resa:14.5,costo:8,quota:100}
   ];
   document.getElementById('resaImp').value=75;
   document.getElementById('ef').value=80;
@@ -325,24 +326,30 @@ function calc(){
   confronto(EF,EmixT,gross,c);
 }
 
-/* Dimensiona il mix coltura↔effluente per CENTRARE E_mix = EmixT e PRODURRE il lordo */
+/* Dimensiona il mix per CENTRARE E_mix = EmixT e PRODURRE il lordo.
+   La QUOTA % imposta dall'utente = peso (tonnellate) relativo della matrice ENTRO il suo gruppo
+   (coltura/sottoprodotti/FORSU ↔ effluente). Il rapporto coltura↔effluente lo calcola il tool (xe)
+   per centrare il target -> il vincolo 80% è SEMPRE rispettato qualunque siano le quote. */
 function buildMix(EmixT,lordo,c,g){
   const col=matrici.filter(m=>m.cat!=='effluente');
   const eff=matrici.filter(m=>m.cat==='effluente');
+  // peso-energia relativo entro il gruppo = quota(peso, t) × resa ; quindi le tonnellate nel gruppo stanno nel rapporto delle quote
+  const ew=m=>(m.quota>0?m.quota:0)*(m.resa>0?m.resa:0);
+  const eshare=(m,arr)=>{const tot=arr.reduce((s,x)=>s+ew(x),0); return tot>0?ew(m)/tot:(arr.length?1/arr.length:0);};
   if(col.length===0||eff.length===0||lordo<=0){
-    const rows=matrici.map(m=>{const en=matrici.length?lordo/matrici.length:0;const ton=m.resa>0?en/m.resa:0;return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g,m.etd),costoTot:ton*m.costo};});
+    const tot=matrici.reduce((s,x)=>s+ew(x),0);
+    const rows=matrici.map(m=>{const sh=tot>0?ew(m)/tot:(matrici.length?1/matrici.length:0);const en=sh*lordo;const ton=m.resa>0?en/m.resa:0;return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g,m.etd),costoTot:ton*m.costo};});
     return {rows,ok:false};
   }
-  // GHG medio per gruppo
-  const Ecol=col.reduce((s,m)=>s+Emat(m.cat,c,g,m.etd),0)/col.length;
-  const Eeff=eff.reduce((s,m)=>s+Emat(m.cat,c,g,m.etd),0)/eff.length;
-  // quota di effluente (energia) che CENTRA il target GHG esatto: E_mix = EmixT -> saving SEMPRE = target.
-  // In puntuale Ecol scende ed Eeff è più negativo -> xe più basso -> serve meno effluente per lo stesso 80%.
+  // GHG medio per gruppo, pesato sulle QUOTE (peso) scelte dall'utente
+  const Ecol=col.reduce((s,m)=>s+eshare(m,col)*Emat(m.cat,c,g,m.etd),0);
+  const Eeff=eff.reduce((s,m)=>s+eshare(m,eff)*Emat(m.cat,c,g,m.etd),0);
+  // bilancio coltura↔effluente che CENTRA il target GHG esatto: E_mix = EmixT -> saving SEMPRE = target
   let xe=(Ecol===Eeff)?0:(Ecol-EmixT)/(Ecol-Eeff); xe=Math.max(0,Math.min(1,xe));
-  const enCol=(1-xe)*lordo, enEff=xe*lordo;     // energia ripartita sul LORDO
+  const enCol=(1-xe)*lordo, enEff=xe*lordo;     // energia totale per gruppo, ripartita sul LORDO
   const rows=matrici.map(m=>{
     const isEff=m.cat==='effluente';
-    const en=isEff?(enEff/eff.length):(enCol/col.length); // ripartizione uniforme nel gruppo
+    const en=(isEff?eshare(m,eff)*enEff:eshare(m,col)*enCol); // energia per quota(peso) entro il gruppo
     const ton=m.resa>0?en/m.resa:0;
     return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g,m.etd),costoTot:ton*m.costo};
   });
@@ -424,6 +431,7 @@ function renderMat(){
        </select></td>
      <td><input type="number" value="${m.resa}" readonly tabindex="-1" title="Resa standard UNI (auto dalla matrice)" style="background:var(--greenbg);color:var(--greend);font-weight:600"></td>
      <td><input type="number" step="0.5" value="${m.costo}" onchange="upd(${i},'costo',+this.value)"></td>
+     <td><input type="number" step="5" min="0" value="${m.quota}" onchange="upd(${i},'quota',+this.value)" title="Peso relativo della matrice entro il suo gruppo (coltura/effluente), normalizzato"></td>
      <td><button class="btn-x" onclick="delRow(${i})" title="Rimuovi">×</button></td>
     </tr>`;
   });
@@ -432,7 +440,7 @@ function renderMat(){
 function upd(i,k,v){matrici[i][k]=v;calc();}
 function updCat(i,v){matrici[i].cat=v; const l=MATRICI[v]||[]; if(l.length){matrici[i].nome=l[0][0]; matrici[i].resa=l[0][1]; matrici[i].etd=l[0][2]||0;} renderMat(); calc();}
 function updMatrice(i,nome){matrici[i].nome=nome; const f=(MATRICI[matrici[i].cat]||[]).find(x=>x[0]===nome); if(f){matrici[i].resa=f[1]; matrici[i].etd=f[2]||0;} renderMat(); calc();}
-function addRow(){const m=MATRICI.coltura[0]; matrici.push({nome:m[0],cat:"coltura",resa:m[1],costo:40,ton:5000});renderMat();calc();}
+function addRow(){const m=MATRICI.coltura[0]; matrici.push({nome:m[0],cat:"coltura",resa:m[1],costo:40,quota:100});renderMat();calc();}
 function delRow(i){matrici.splice(i,1);renderMat();calc();}
 function setGhg(m){ghgMode=m;
   document.querySelectorAll('#segGhg button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
