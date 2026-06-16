@@ -177,6 +177,8 @@
 <script>
 /* ===================== DATI EMISSIONI (tabella UNI 11567:2024) ===================== */
 const UPGR = {"S/C OffG":21.4, "UpG <1%":7.3, "UpG <0,2%":1.8, "C/C OffG":0.4};
+// Upgrading specifico dei RESIDUI/SOTTOPRODOTTI (biogas con più CO2 da separare -> upgrading più alto) — UNI 2024 Prosp. A.9
+const UPGR_SOTTO = {"S/C OffG":23.9, "UpG <1%":8.2, "UpG <0,2%":2.0, "C/C OffG":0.4};
 // EMIS[regime][categoria][dig A|C][offgas] = {ec, lavor, etd, cred}
 const EMIS = {
  rinnovabile:{
@@ -188,7 +190,10 @@ const EMIS = {
    C:{"S/C OffG":{ec:0,lavor:0.3,etd:1.0,cred:-130.2},"UpG <1%":{ec:0,lavor:0.3,etd:1.0,cred:-127.6},"UpG <0,2%":{ec:0,lavor:0.3,etd:1.0,cred:-126.5},"C/C OffG":{ec:0,lavor:0.3,etd:1.0,cred:-130.2}}},
   forsu:{
    A:{"S/C OffG":{ec:0,lavor:42.6,etd:0.7,cred:0},"UpG <1%":{ec:0,lavor:41.8,etd:0.7,cred:0},"UpG <0,2%":{ec:0,lavor:41.4,etd:0.7,cred:0},"C/C OffG":{ec:0,lavor:42.6,etd:0.7,cred:0}},
-   C:{"S/C OffG":{ec:0,lavor:0.5,etd:0.6,cred:0},"UpG <1%":{ec:0,lavor:0.5,etd:0.6,cred:0},"UpG <0,2%":{ec:0,lavor:0.5,etd:0.6,cred:0},"C/C OffG":{ec:0,lavor:0.5,etd:0.6,cred:0}}}},
+   C:{"S/C OffG":{ec:0,lavor:0.5,etd:0.6,cred:0},"UpG <1%":{ec:0,lavor:0.5,etd:0.6,cred:0},"UpG <0,2%":{ec:0,lavor:0.5,etd:0.6,cred:0},"C/C OffG":{ec:0,lavor:0.5,etd:0.6,cred:0}}},
+  sottoprodotti:{ // residui/sottoprodotti: ec=0, nessun credito; etd (trasporto) è per-matrice (classe di umidità); upgrading da UPGR_SOTTO
+   A:{"S/C OffG":{ec:0,lavor:45,etd:0,cred:0},"UpG <1%":{ec:0,lavor:44.1,etd:0,cred:0},"UpG <0,2%":{ec:0,lavor:43.8,etd:0,cred:0},"C/C OffG":{ec:0,lavor:45,etd:0,cred:0}},
+   C:{"S/C OffG":{ec:0,lavor:2.5,etd:0,cred:0},"UpG <1%":{ec:0,lavor:2.4,etd:0,cred:0},"UpG <0,2%":{ec:0,lavor:2.4,etd:0,cred:0},"C/C OffG":{ec:0,lavor:2.5,etd:0,cred:0}}}},
  base:{
   coltura:{
    A:{"S/C OffG":{ec:18.1,lavor:28.1,etd:0,cred:0},"UpG <1%":{ec:17.7,lavor:27.5,etd:0,cred:0},"UpG <0,2%":{ec:17.6,lavor:27.3,etd:0,cred:0},"C/C OffG":{ec:18.1,lavor:28.1,etd:0,cred:0}},
@@ -198,15 +203,19 @@ const EMIS = {
    C:{"S/C OffG":{ec:0,lavor:4.4,etd:0.9,cred:-111.9},"UpG <1%":{ec:0,lavor:4.3,etd:0.9,cred:-109.6},"UpG <0,2%":{ec:0,lavor:4.3,etd:0.9,cred:-108.8},"C/C OffG":{ec:0,lavor:4.4,etd:0.9,cred:-111.9}}},
   forsu:{
    A:{"S/C OffG":{ec:0,lavor:42.8,etd:0.6,cred:0},"UpG <1%":{ec:0,lavor:41.9,etd:0.6,cred:0},"UpG <0,2%":{ec:0,lavor:41.6,etd:0.6,cred:0},"C/C OffG":{ec:0,lavor:42.8,etd:0.6,cred:0}},
-   C:{"S/C OffG":{ec:0,lavor:7.2,etd:0.5,cred:0},"UpG <1%":{ec:0,lavor:7.1,etd:0.5,cred:0},"UpG <0,2%":{ec:0,lavor:7.0,etd:0.5,cred:0},"C/C OffG":{ec:0,lavor:7.2,etd:0.5,cred:0}}}}
+   C:{"S/C OffG":{ec:0,lavor:7.2,etd:0.5,cred:0},"UpG <1%":{ec:0,lavor:7.1,etd:0.5,cred:0},"UpG <0,2%":{ec:0,lavor:7.0,etd:0.5,cred:0},"C/C OffG":{ec:0,lavor:7.2,etd:0.5,cred:0}}},
+  sottoprodotti:{
+   A:{"S/C OffG":{ec:0,lavor:40.8,etd:0,cred:0},"UpG <1%":{ec:0,lavor:40,etd:0,cred:0},"UpG <0,2%":{ec:0,lavor:39.7,etd:0,cred:0},"C/C OffG":{ec:0,lavor:40.8,etd:0,cred:0}},
+   C:{"S/C OffG":{ec:0,lavor:6.2,etd:0,cred:0},"UpG <1%":{ec:0,lavor:6,etd:0,cred:0},"UpG <0,2%":{ec:0,lavor:6,etd:0,cred:0},"C/C OffG":{ec:0,lavor:6.2,etd:0,cred:0}}}}
 };
-const CAT_LABEL={coltura:"Coltura energetica",effluente:"Effluente zootecnico",forsu:"FORSU"};
-const RESA_DEF={coltura:108.58,effluente:14.5,forsu:120};
-// Matrici per categoria con resa STANDARD m³CH₄/t (UNI 2024, foglio "RESE BIOGAS")
+const CAT_LABEL={coltura:"Coltura energetica",effluente:"Effluente zootecnico",forsu:"FORSU",sottoprodotti:"Residui / Sottoprodotti"};
+const RESA_DEF={coltura:108.58,effluente:14.5,forsu:120,sottoprodotti:79.2};
+// Matrici per categoria con resa STANDARD m³CH₄/t (UNI 2024, foglio "RESE BIOGAS"). Sottoprodotti: [nome, resa, etd] (trasporto per classe di umidità)
 const MATRICI={
  coltura:[["Mais",116.14],["Frumento insilato",109.48],["Triticale insilato",106.11],["Erbaio misto",104.49],["Orzo insilato",102.86],["Arundo donax",101.99],["Segale",101.75],["Sorgo insilato",101.43],["Loietto",93.76],["Erba medica",85.87],["Sulla",64.72],["Favino",60.74],["Barbabietola autunnale",47.55],["Opuntia",21.53]],
  effluente:[["Effluente zootecnico (generico)",14],["Liquame suino",14.5],["Liquame bovino",13.2],["Letame bovino",36.3],["Effluente avicolo",133.52]],
- forsu:[["FORSU (Biowaste)",95.19]]
+ forsu:[["FORSU (Biowaste)",95.19]],
+ sottoprodotti:[["Sottoprod. secco (U≤30%)",277.5,0.3],["Sottoprod. medio (30–80%)",79.2,0.5],["Sottoprod. umido (U>80%)",19.8,2.9]]
 };
 
 /* ===================== STATO ===================== */
@@ -241,10 +250,10 @@ function ghgParams(){return{
   migEtd:+document.getElementById('migEtd').value    // % riduzione trasporto etd effluente vs standard
 };}
 // Emissione di una categoria, gCO2eq/MJ
-function Emat(cat,c,g){
+function Emat(cat,c,g,etdMat){
   const digKey=c.dig==='A'?'A':'C';
   const b=EMIS[c.regime][cat][digKey][c.offgas];
-  const upgr=UPGR[c.offgas];
+  const upgr=(cat==='sottoprodotti'?UPGR_SOTTO:UPGR)[c.offgas];
   let ec=b.ec,cred=b.cred,etd=b.etd,lavor=b.lavor;
   if(g.mode==='puntuale'){
     // miglioramento % SUL valore standard della categoria -> sempre favorevole, adatta a matrice e config
@@ -252,6 +261,7 @@ function Emat(cat,c,g){
     if(cat==='effluente'){ cred = cred * (1 + (g.migCred||0)/100); // credito (negativo) più favorevole
                            etd  = etd  * (1 - (g.migEtd||0)/100); } // trasporto reale più corto
   }
+  etd += (etdMat||0); // trasporto specifico della matrice (sottoprodotti: per classe di umidità)
   if(c.dig==='C30')return (ec+cred+(lavor+upgr+1.6))/0.9+etd;
   return ec+cred+lavor+upgr+etd; // Dig.A o Dig.C 60gg: nessuna penalità
 }
@@ -319,12 +329,12 @@ function buildMix(EmixT,lordo,c,g){
   const col=matrici.filter(m=>m.cat!=='effluente');
   const eff=matrici.filter(m=>m.cat==='effluente');
   if(col.length===0||eff.length===0||lordo<=0){
-    const rows=matrici.map(m=>{const en=matrici.length?lordo/matrici.length:0;const ton=m.resa>0?en/m.resa:0;return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g),costoTot:ton*m.costo};});
+    const rows=matrici.map(m=>{const en=matrici.length?lordo/matrici.length:0;const ton=m.resa>0?en/m.resa:0;return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g,m.etd),costoTot:ton*m.costo};});
     return {rows,ok:false};
   }
   // GHG medio per gruppo
-  const Ecol=col.reduce((s,m)=>s+Emat(m.cat,c,g),0)/col.length;
-  const Eeff=eff.reduce((s,m)=>s+Emat(m.cat,c,g),0)/eff.length;
+  const Ecol=col.reduce((s,m)=>s+Emat(m.cat,c,g,m.etd),0)/col.length;
+  const Eeff=eff.reduce((s,m)=>s+Emat(m.cat,c,g,m.etd),0)/eff.length;
   // quota di effluente (energia) che CENTRA il target GHG esatto: E_mix = EmixT -> saving SEMPRE = target.
   // In puntuale Ecol scende ed Eeff è più negativo -> xe più basso -> serve meno effluente per lo stesso 80%.
   let xe=(Ecol===Eeff)?0:(Ecol-EmixT)/(Ecol-Eeff); xe=Math.max(0,Math.min(1,xe));
@@ -333,7 +343,7 @@ function buildMix(EmixT,lordo,c,g){
     const isEff=m.cat==='effluente';
     const en=isEff?(enEff/eff.length):(enCol/col.length); // ripartizione uniforme nel gruppo
     const ton=m.resa>0?en/m.resa:0;
-    return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g),costoTot:ton*m.costo};
+    return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g,m.etd),costoTot:ton*m.costo};
   });
   return {rows,ok:true};
 }
@@ -419,8 +429,8 @@ function renderMat(){
   document.getElementById('matBody').innerHTML=h;
 }
 function upd(i,k,v){matrici[i][k]=v;calc();}
-function updCat(i,v){matrici[i].cat=v; const l=MATRICI[v]||[]; if(l.length){matrici[i].nome=l[0][0]; matrici[i].resa=l[0][1];} renderMat(); calc();}
-function updMatrice(i,nome){matrici[i].nome=nome; const f=(MATRICI[matrici[i].cat]||[]).find(x=>x[0]===nome); if(f)matrici[i].resa=f[1]; renderMat(); calc();}
+function updCat(i,v){matrici[i].cat=v; const l=MATRICI[v]||[]; if(l.length){matrici[i].nome=l[0][0]; matrici[i].resa=l[0][1]; matrici[i].etd=l[0][2]||0;} renderMat(); calc();}
+function updMatrice(i,nome){matrici[i].nome=nome; const f=(MATRICI[matrici[i].cat]||[]).find(x=>x[0]===nome); if(f){matrici[i].resa=f[1]; matrici[i].etd=f[2]||0;} renderMat(); calc();}
 function addRow(){const m=MATRICI.coltura[0]; matrici.push({nome:m[0],cat:"coltura",resa:m[1],costo:40,ton:5000});renderMat();calc();}
 function delRow(i){matrici.splice(i,1);renderMat();calc();}
 function setGhg(m){ghgMode=m;
