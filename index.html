@@ -155,7 +155,7 @@
         <div class="kpi rev"><div class="lab">Ricavo tariffa</div><div class="val" id="kRev">—</div><div class="sub" id="kRevSm3"></div></div>
         <div class="kpi"><div class="lab">Biometano netto</div><div class="val" id="kProd">—</div><div class="sub">Sm³/anno in rete</div></div>
       </div>
-      <table class="detail"><thead><tr><th>Matrice</th><th>t/anno</th><th>Energia<br>Sm³CH₄</th><th>Quota en.</th><th>E_i<br>gCO₂/MJ</th></tr></thead>
+      <table class="detail"><thead><tr><th>Matrice</th><th>t/anno</th><th>% peso</th><th>Energia<br>Sm³CH₄</th><th>Quota en.</th><th>E_i<br>gCO₂/MJ</th></tr></thead>
         <tbody id="detBody"></tbody></table>
       <div class="note" id="rebNote"></div>
     </div>
@@ -317,8 +317,8 @@ function calc(){
   bt.className='badge '+(okT?'ok':'no'); bt.textContent=(okT?'✓ ':'✗ ')+'Target '+(target*100).toFixed(0)+'%';
 
   let h='';
-  rows.forEach(r=>{h+=`<tr><td>${esc(r.nome)}</td><td>${fmt0(r.ton)}</td><td>${fmt0(r.energia)}</td><td>${(r.quota*100).toFixed(1)}%</td><td>${r.E.toFixed(1)}</td></tr>`;});
-  h+=`<tr><td>TOTALE</td><td>${fmt0(totTon)}</td><td>${fmt0(totEn)}</td><td>100%</td><td>${Emix.toFixed(1)}</td></tr>`;
+  rows.forEach(r=>{h+=`<tr><td>${esc(r.nome)}</td><td>${fmt0(r.ton)}</td><td>${totTon>0?(r.ton/totTon*100).toFixed(1):'0'}%</td><td>${fmt0(r.energia)}</td><td>${(r.quota*100).toFixed(1)}%</td><td>${r.E.toFixed(1)}</td></tr>`;});
+  h+=`<tr><td>TOTALE</td><td>${fmt0(totTon)}</td><td>100%</td><td>${fmt0(totEn)}</td><td>100%</td><td>${Emix.toFixed(1)}</td></tr>`;
   document.getElementById('detBody').innerHTML=h;
 
   const rn=document.getElementById('rebNote');
