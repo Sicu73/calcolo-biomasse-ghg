@@ -42,14 +42,14 @@
   .seg button.on{background:var(--green);color:#fff}
   .seg.p button.on{background:var(--purp)}
   /* KPI */
-  .kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
-  @media(max-width:560px){.kpis{grid-template-columns:1fr 1fr}}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px}
   .kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;border-top:4px solid var(--green)}
   .kpi .lab{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:var(--sub);font-weight:600}
-  .kpi .val{font-size:26px;font-weight:800;margin-top:3px;color:var(--ink)}
+  .kpi .val{font-size:23px;font-weight:800;margin-top:3px;color:var(--ink)}
   .kpi .sub{font-size:11.5px;color:var(--sub);margin-top:2px}
   .kpi.cost{border-top-color:var(--purp)} .kpi.cost .val{color:var(--purp)}
   .kpi.save .val{color:var(--greend)}
+  .kpi.rev{border-top-color:var(--blue)} .kpi.rev .val{color:var(--blue)}
   .badge{display:inline-block;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700;margin-right:8px}
   .ok{background:var(--greenbg);color:var(--greend)} .no{background:#FBEAE6;color:var(--red)}
   .detail{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
@@ -152,6 +152,7 @@
       <div class="kpis">
         <div class="kpi save"><div class="lab">Risparmio GHG</div><div class="val" id="kSave">—</div><div class="sub" id="kEmix"></div></div>
         <div class="kpi cost"><div class="lab">Costo biomassa</div><div class="val" id="kCost">—</div><div class="sub" id="kCostSm3"></div></div>
+        <div class="kpi rev"><div class="lab">Ricavo tariffa</div><div class="val" id="kRev">—</div><div class="sub" id="kRevSm3"></div></div>
         <div class="kpi"><div class="lab">Biometano netto</div><div class="val" id="kProd">—</div><div class="sub">Sm³/anno in rete</div></div>
       </div>
       <table class="detail"><thead><tr><th>Matrice</th><th>t/anno</th><th>Energia<br>Sm³CH₄</th><th>Quota en.</th><th>E_i<br>gCO₂/MJ</th></tr></thead>
@@ -302,6 +303,11 @@ function calc(){
   document.getElementById('kEmix').textContent='E_mix '+Emix.toFixed(1)+' gCO₂/MJ';
   document.getElementById('kCost').textContent=fmt0(costo)+' €';
   document.getElementById('kCostSm3').textContent=costoSm3.toFixed(3)+' €/Sm³ netto';
+  // Ricavo tariffa: €/anno = Sm³ netti × PCI(kWh/Sm³)/1000 × tariffa(€/MWh). PCI biometano 9,94 kWh/Sm³.
+  const PCI=9.94;
+  const ricavo=netto*PCI/1000*(+document.getElementById('tariffa').value);
+  document.getElementById('kRev').textContent=fmt0(ricavo)+' €';
+  document.getElementById('kRevSm3').textContent=(netto>0?(ricavo/netto).toFixed(3):'0')+' €/Sm³ netto';
   document.getElementById('kProd').textContent=fmt0(netto);
   document.getElementById('nettoOut').value=fmt0(netto)+' Sm³/anno';
   document.getElementById('lordoOut').value=fmt0(gross)+' Sm³/anno';
