@@ -183,7 +183,7 @@
         <div class="cmpcard std"><div class="t">Risparmio cumulato</div><div class="b" id="vRisCum">—</div><div class="s" id="vRisCumN"></div></div>
         <div class="cmpcard ris"><div class="t">Compenso proponibile</div><div class="b" id="vFee">—</div><div class="s" id="vFee3"></div></div>
       </div>
-      <div class="note" id="vNote">Margine a <b>configurazione impianto FISSA</b> (ottimizzi solo le biomasse): qualifica il cliente potenziale in ALTO / MEDIO / NULLO. Stima orientativa — il compenso va legato al <b>risparmio effettivamente certificato</b>, non a quello teorico.</div>
+      <div class="note" id="vNote">Margine a <b>configurazione impianto FISSA</b> (ottimizzi solo le biomasse): qualifica il cliente potenziale in ALTO / MEDIO / NULLO. Il <b>compenso</b> mostrato è il <b>tuo guadagno</b>: una tantum (% del risparmio del 1° anno) oppure, in alternativa, una quota su 3 anni. Il <b>risparmio del cliente è invece ricorrente ogni anno</b> (vedi "Risparmio cumulato"). Stima orientativa — legalo al risparmio certificato.</div>
     </div>
   </div>
 </div>
@@ -448,7 +448,7 @@ function valoreCommerciale(ris,costS){
   set('vRisPct',costS>0?('−'+(ris/costS*100).toFixed(1)+'% sul costo biomassa'):'');
   set('vRisCum',fmt0(risCum)+' €'); set('vRisCumN','risparmio su '+anni+' anni');
   set('vFee', ris>0?fmt0(feeY1)+' €':'—');
-  set('vFee3', ris>0?('o '+fmt0(fee3)+' € su 3 anni (15%/anno)'):'');
+  set('vFee3', ris>0?('una tantum · oppure '+fmt0(fee3)+' € totali in 3 anni (15%/anno)'):'');
 }
 // converte frazione energia effluente -> frazione peso (servono rese rappresentative)
 function wsFromXe(xe,gc,ge){
