@@ -99,8 +99,10 @@ function tracePayload(result){
       energiaMJ: "peso_normalizzato_t * MJ_kg_tq * 1000",
       ec: "(N*fattoreN + gasolio*2.68 + elettricita*0.32) * 1000 / energia_MJ_ha",
       etd: "tonnellate * km * fattore_mezzo * 1000 / energia_MJ_lotto",
-      credito: "-(tonnellate * kgCO2e_t_evitati) * 1000 / energia_MJ_lotto"
+      credito: "scenario != none ? -(tonnellate * kgCO2e_t_evitati) * 1000 / energia_MJ_lotto : 0",
+      confrontoFornitura: "delta = (ec+etd+credito)_puntuale - (ec+etd+crediti)_standard [gCO2e/MJ biometano]; ep di processo escluso (compete all'impianto)"
     },
+    scenarioCredito: result.avoidedScenario,
     risultati: {
       pesoNormalizzatoT: result.normTon,
       energiaMj: result.energyMj,
@@ -108,9 +110,14 @@ function tracePayload(result){
       ec: result.ec,
       etd: result.etd,
       credito: result.credit,
-      totalePuntuale: result.punctualTotal,
-      totaleStandard: result.standardTotal,
-      differenzaVsStandard: Number.isFinite(result.standardTotal) ? result.punctualTotal - result.standardTotal : null
+      sottototaleFornituraPuntuale: result.punctualTotal,
+      standardEc: result.stdEc,
+      standardEtd: result.stdEtd,
+      standardCrediti: result.stdCred,
+      standardEp: result.stdEp,
+      sottototaleFornituraStandard: result.standardSupplyTotal,
+      totaleFilieraStandardCalore: result.standardTotal,
+      deltaFornituraVsStandard: result.supplyDelta
     },
     evidenze: result.evidence
   };
@@ -150,7 +157,9 @@ function renderTrace(result){
         ${row("Filiera", standard ? standard.filiera : "n/d")}
         ${row("Digestato", standard ? standard.digestato : "n/d")}
         ${row("Off-gas", standard ? standard.offgas : "n/d")}
-        ${row("Totale standard", Number.isFinite(trace.risultati.totaleStandard) ? `${fmt(trace.risultati.totaleStandard, 2)} gCO2e/MJ` : "n/d")}
+        ${row("Tot. filiera UNI (MJ calore)", Number.isFinite(trace.risultati.totaleFilieraStandardCalore) ? `${fmt(trace.risultati.totaleFilieraStandardCalore, 2)} gCO2e/MJ` : "n/d")}
+        ${row("ep processo UNI (impianto)", trace.risultati.standardEp === null ? "n/d" : `${fmt(trace.risultati.standardEp, 2)} gCO2e/MJ`)}
+        ${row("Sotto-tot. fornitura UNI", trace.risultati.sottototaleFornituraStandard === null ? "n/d" : `${fmt(trace.risultati.sottototaleFornituraStandard, 2)} gCO2e/MJ`)}
       </div>
     </div>
 
@@ -163,8 +172,18 @@ function renderTrace(result){
         ${row("ec coltivazione", `${fmt(trace.risultati.ec, 3)} gCO2e/MJ`)}
         ${row("etd trasporto", `${fmt(trace.risultati.etd, 3)} gCO2e/MJ`)}
         ${row("Credito", `${fmt(trace.risultati.credito, 3)} gCO2e/MJ`)}
-        ${row("Totale puntuale", `${fmt(trace.risultati.totalePuntuale, 3)} gCO2e/MJ`)}
-        ${row("Delta vs standard", trace.risultati.differenzaVsStandard === null ? "n/d" : `${fmt(trace.risultati.differenzaVsStandard, 3)} gCO2e/MJ`)}
+        ${row("Sotto-totale fornitura", `${fmt(trace.risultati.sottototaleFornituraPuntuale, 3)} gCO2e/MJ`)}
+      </div>
+    </div>
+
+    <div class="trace-card full">
+      <h3>Confronto lato fornitura (gCO2e/MJ biometano)</h3>
+      <div class="trace-list">
+        ${row("ec puntuale / UNI", `${fmt(trace.risultati.ec, 2)}  /  ${trace.risultati.standardEc === null ? "n/d" : fmt(trace.risultati.standardEc, 2)}`)}
+        ${row("etd puntuale / UNI", `${fmt(trace.risultati.etd, 2)}  /  ${trace.risultati.standardEtd === null ? "n/d" : fmt(trace.risultati.standardEtd, 2)}`)}
+        ${row("credito puntuale / UNI", `${fmt(trace.risultati.credito, 2)}  /  ${trace.risultati.standardCrediti === null ? "n/d" : fmt(trace.risultati.standardCrediti, 2)}`)}
+        ${row("Delta fornitura vs UNI", trace.risultati.deltaFornituraVsStandard === null ? "n/d" : `${fmt(trace.risultati.deltaFornituraVsStandard, 2)} gCO2e/MJ`)}
+        ${row("Nota", "ep di processo/upgrading escluso dal confronto: compete all'impianto, non al fornitore")}
       </div>
     </div>
 
@@ -207,6 +226,11 @@ function calculate(){
   const methaneM3 = methaneM3T > 0 ? normTon * methaneM3T : energyMj / factorDefaults.methaneMjM3;
   const standard = selectedStandard(matrix);
   const standardTotal = Number(standard?.tot_altri_80_M ?? standard?.tot_altri_80_O ?? standard?.tot_liq);
+  const stdNum = (v) => Number.isFinite(Number(v)) ? Number(v) : null;
+  const stdEc = stdNum(standard?.ec);
+  const stdEtd = stdNum(standard?.etd);
+  const stdCred = stdNum(standard?.crediti);
+  const stdEp = stdNum(standard?.ep);
 
   const yieldTha = Math.max(num("yieldTha"), 0.0001);
   const nitrogenKgHa = num("nitrogenKgHa");
@@ -222,15 +246,18 @@ function calculate(){
     ? (quantityT * num("distanceKm") * num("transportFactor")) * 1000 / energyMj
     : 0;
 
-  const credit = matrix.category === "effluente"
+  const avoidedScenario = $("avoidedScenario").value;
+  const credit = (matrix.category === "effluente" && avoidedScenario !== "none")
     ? -(quantityT * num("avoidedKgT")) * 1000 / Math.max(energyMj, 0.0001)
     : 0;
 
   const punctualTotal = ec + etd + credit;
+  const standardSupplyTotal = standard ? (stdEc || 0) + (stdEtd || 0) + (stdCred || 0) : null;
+  const supplyDelta = (standardSupplyTotal !== null) ? punctualTotal - standardSupplyTotal : null;
   const evidence = evidenceComplete(matrix);
-  const status = evidence.complete ? "Validabile" : "Evidenze incomplete";
+  const status = evidence.complete ? "Evidenze allegate" : "Evidenze incomplete";
 
-  return { matrix, quantityT, realSt, refSt, normTon, energyMj, methaneM3, standard, standardTotal, ec, etd, credit, punctualTotal, evidence, status };
+  return { matrix, quantityT, realSt, refSt, normTon, energyMj, methaneM3, standard, standardTotal, stdEc, stdEtd, stdCred, stdEp, avoidedScenario, ec, etd, credit, punctualTotal, standardSupplyTotal, supplyDelta, evidence, status };
 }
 
 function render(){
@@ -250,12 +277,14 @@ function render(){
   $("energyMj").textContent = `${fmt0(result.energyMj)} MJ`;
   $("methaneM3").textContent = `${fmt0(result.methaneM3)} m3 CH4`;
   $("standardTotal").textContent = Number.isFinite(result.standardTotal) ? `${fmt(result.standardTotal, 1)} gCO2e/MJ` : "n/d";
+  $("standardSupply").textContent = (result.standardSupplyTotal !== null) ? `${fmt(result.standardSupplyTotal, 2)} gCO2e/MJ` : "n/d";
+  $("supplyDelta").textContent = (result.supplyDelta !== null) ? `${fmt(result.supplyDelta, 2)} gCO2e/MJ` : "n/d";
 
   $("ecOut").textContent = `${fmt(result.ec, 2)} gCO2e/MJ`;
   $("etdOut").textContent = `${fmt(result.etd, 2)} gCO2e/MJ`;
   $("creditOut").textContent = `${fmt(result.credit, 2)} gCO2e/MJ`;
 
-  $("evidenceStatus").textContent = evidence.complete ? "Evidenze complete" : "Evidenze incomplete";
+  $("evidenceStatus").textContent = evidence.complete ? "Evidenze allegate" : "Evidenze incomplete";
   $("evidenceStatus").className = evidence.complete ? "tag" : "tag warn";
 
   renderTrace(result);
@@ -301,10 +330,14 @@ function profilePayload(){
       normalizedT: r.normTon,
       energyMj: r.energyMj,
       methaneM3: r.methaneM3,
-      standardTotal: r.standardTotal,
-      punctual: { ec: r.ec, etd: r.etd, credit: r.credit, total: r.punctualTotal },
+      avoidedScenario: r.avoidedScenario,
+      standardTotalHeat: r.standardTotal,
+      standardSupplyTotal: r.standardSupplyTotal,
+      supplyDelta: r.supplyDelta,
+      punctual: { ec: r.ec, etd: r.etd, credit: r.credit, supplyTotal: r.punctualTotal },
+      standard: { ec: r.stdEc, etd: r.stdEtd, credit: r.stdCred, ep: r.stdEp },
       evidence: r.evidence,
-      status: r.evidence.complete ? "validated-ready" : "blocked-missing-evidence"
+      status: r.evidence.complete ? "evidence-attached" : "blocked-missing-evidence"
     }
   };
 }
