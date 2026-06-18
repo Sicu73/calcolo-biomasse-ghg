@@ -79,7 +79,84 @@
     </section>
 
     <section class="panel wide">
-      <h2>4. Metodo di calcolo oggi implementato</h2>
+      <h2>4. Come preparare i calcoli puntuali</h2>
+      <p>Per dare un valore puntuale non basta scrivere una percentuale di miglioramento. Serve costruire una piccola scheda tecnica per ogni <b>fornitore + matrice + periodo</b>, con dati misurati o documentati. Il software trasforma questi dati in <b>gCO2e/MJ</b>, cioe grammi di CO2 equivalente per MJ di energia della biomassa.</p>
+
+      <h3>4.1 Regola generale</h3>
+      <ol>
+        <li>Definisci il <b>perimetro</b>: fornitore, matrice, periodo, quantita consegnata.</li>
+        <li>Calcola l'<b>energia del lotto</b>: quantita normalizzata x resa energetica della matrice.</li>
+        <li>Raccogli i <b>dati primari</b>: input agricoli, trasporti, eventuale gestione alternativa evitata.</li>
+        <li>Converti ogni dato in <b>kgCO2e</b> usando un fattore emissivo documentato.</li>
+        <li>Dividi per l'energia del lotto o per l'energia per ettaro.</li>
+        <li>Converti da kgCO2e/MJ a <b>gCO2e/MJ</b> moltiplicando per 1000.</li>
+        <li>Allega le evidenze: senza documento il valore resta non validabile.</li>
+      </ol>
+
+      <h3>4.2 Colture energetiche: come dare ec puntuale</h3>
+      <p>Il termine <b>ec</b> rappresenta le emissioni della coltivazione. Si applica alle colture, per esempio mais, sorgo, triticale, frumento, orzo, loietto.</p>
+      <div class="table-wrap">
+        <table class="manual-table">
+          <thead><tr><th>Dato da raccogliere</th><th>Unita</th><th>Documento consigliato</th><th>Uso nel calcolo</th></tr></thead>
+          <tbody>
+            <tr><td>Resa agricola</td><td>t/ha</td><td>Registro campagna, pesate, contratto fornitura</td><td>Serve per calcolare l'energia prodotta per ettaro.</td></tr>
+            <tr><td>Azoto minerale</td><td>kg N/ha</td><td>Fatture fertilizzanti, piano concimazione, quaderno campagna</td><td>kg N/ha x fattore kgCO2e/kg N.</td></tr>
+            <tr><td>Gasolio agricolo</td><td>L/ha</td><td>Registro carburante, fatture, stima lavorazioni</td><td>L/ha x fattore kgCO2e/L.</td></tr>
+            <tr><td>Energia elettrica</td><td>kWh/ha</td><td>Bollette, contatori, stima irrigazione</td><td>kWh/ha x fattore kgCO2e/kWh.</td></tr>
+            <tr><td>Fattori emissivi</td><td>kgCO2e/unita</td><td>Fonte tecnica, banca dati, fattore approvato</td><td>Converte gli input in emissioni.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Formula operativa oggi usata:</p>
+      <p><code>ec = (N * fattoreN + gasolio * 2,68 + elettricita * 0,32) * 1000 / energia_MJ_ha</code></p>
+      <p>Dove <code>energia_MJ_ha = resa_t_ha x MJ_kg_tq x 1000</code>. Il risultato e espresso in <b>gCO2e/MJ</b>.</p>
+
+      <h3>4.3 Trasporto: come dare etd puntuale</h3>
+      <p>Il termine <b>etd</b> rappresenta le emissioni di trasporto della biomassa dal punto di origine all'impianto.</p>
+      <div class="table-wrap">
+        <table class="manual-table">
+          <thead><tr><th>Dato da raccogliere</th><th>Unita</th><th>Documento consigliato</th><th>Uso nel calcolo</th></tr></thead>
+          <tbody>
+            <tr><td>Quantita trasportata</td><td>t</td><td>DDT, pesate, registro conferimenti</td><td>Base per tonnellate-km.</td></tr>
+            <tr><td>Distanza media</td><td>km</td><td>Mappa, indirizzo campo/stalla, percorso documentato</td><td>Moltiplicata per le tonnellate.</td></tr>
+            <tr><td>Tipo mezzo</td><td>classe/fattore</td><td>Scheda mezzo, contratto trasporto, fattore emissivo</td><td>Determina kgCO2e/tkm.</td></tr>
+            <tr><td>Fattore mezzo</td><td>kgCO2e/tkm</td><td>Banca dati o fattore approvato</td><td>Converte tkm in kgCO2e.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Formula operativa oggi usata:</p>
+      <p><code>etd = tonnellate x km x fattore_mezzo x 1000 / energia_MJ_lotto</code></p>
+      <p>Se ci sono piu fornitori o piu distanze, si calcola una media ponderata sulle tonnellate conferite.</p>
+
+      <h3>4.4 Effluenti: come dare il credito puntuale</h3>
+      <p>Per gli effluenti il valore puntuale puo includere un <b>credito</b>, cioe emissioni evitate rispetto a una gestione alternativa che sarebbe avvenuta senza digestione anaerobica.</p>
+      <div class="table-wrap">
+        <table class="manual-table">
+          <thead><tr><th>Dato da raccogliere</th><th>Unita</th><th>Documento consigliato</th><th>Uso nel calcolo</th></tr></thead>
+          <tbody>
+            <tr><td>Tipo effluente</td><td>liquame, letame, avicolo, fanghi</td><td>Contratto, analisi, registro aziendale</td><td>Definisce scenario e resa.</td></tr>
+            <tr><td>Gestione alternativa evitata</td><td>aperto, coperto, vasca, platea</td><td>Relazione tecnica, foto, registro aziendale</td><td>Giustifica il credito.</td></tr>
+            <tr><td>Credito evitato</td><td>kgCO2e/t</td><td>Fonte tecnica o calcolo approvato</td><td>Trasformato in gCO2e/MJ con segno negativo.</td></tr>
+            <tr><td>Quantita effluente</td><td>t</td><td>Pesate, registri, formulari</td><td>Moltiplica il credito unitario.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Formula operativa oggi usata:</p>
+      <p><code>credito = -(tonnellate x kgCO2e_t_evitati) x 1000 / energia_MJ_lotto</code></p>
+      <p>Il segno e negativo perche e un credito: abbassa l'emissione complessiva.</p>
+
+      <h3>4.5 Come decidere se un dato puntuale e buono</h3>
+      <ul>
+        <li>Il dato deve riferirsi allo stesso <b>periodo</b> della pratica.</li>
+        <li>Il dato deve riferirsi alla stessa <b>matrice</b> e allo stesso <b>fornitore</b>.</li>
+        <li>Ogni numero importante deve avere una <b>fonte</b>: fattura, registro, analisi, mappa, relazione tecnica.</li>
+        <li>Se un dato e stimato, va indicato come stima e non come misura.</li>
+        <li>Se manca un documento, il software mostra <b>Evidenze incomplete</b>.</li>
+      </ul>
+    </section>
+
+    <section class="panel wide">
+      <h2>5. Metodo di calcolo oggi implementato</h2>
       <h3>Normalizzazione e lotto</h3>
       <ul>
         <li><b>Peso normalizzato</b> = quantita tal quale x ST reale / ST di riferimento.</li>
@@ -96,7 +173,7 @@
     </section>
 
     <section class="panel wide">
-      <h2>5. Cosa viene dalla UNI e cosa no</h2>
+      <h2>6. Cosa viene dalla UNI e cosa no</h2>
       <div class="okbox">
         <p><b>Viene dal materiale UNI/workbook fornito:</b> catalogo matrici, rese, sostanza secca di riferimento, fonti, righe standard di emissione e logica di confronto con lo standard. Il file dati del software e derivato dal workbook <b>UNI 11567-2024_Calcolo_GHG_Lotto 1 (1).xlsx</b>.</p>
       </div>
@@ -107,7 +184,7 @@
     </section>
 
     <section class="panel wide">
-      <h2>6. Come leggere la Traccia calcolo</h2>
+      <h2>7. Come leggere la Traccia calcolo</h2>
       <ul>
         <li><b>Fonte dati</b>: mostra workbook, PDF e hash usati per tracciabilita.</li>
         <li><b>Standard UNI selezionato</b>: mostra quale riga del workbook e stata agganciata.</li>
