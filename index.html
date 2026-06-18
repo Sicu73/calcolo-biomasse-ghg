@@ -172,18 +172,25 @@
     </div>
 
     <div class="card purp">
-      <h2>Valore commerciale del servizio</h2>
+      <h2>Valore commerciale del servizio — canone annuo</h2>
       <div style="margin-bottom:10px"><span id="badgeMargine" class="badge">—</span></div>
-      <div class="grid2">
-        <div><label>Anni incentivo residui</label><input id="anniInc" type="number" value="10" min="1" step="1"></div>
-        <div><label>Compenso: % del risparmio (1° anno)</label><input id="feePct" type="number" value="20" min="0" step="1"></div>
+      <div class="grid3">
+        <div><label>Anni contratto</label><input id="anniInc" type="number" value="10" min="1" step="1"></div>
+        <div><label>Base fissa (€/anno)</label><input id="baseFee" type="number" value="9000" min="0" step="500"></div>
+        <div><label>% sul risparmio certificato</label><input id="pctCert" type="number" value="15" min="0" step="1"></div>
+        <div><label>N° profili puntuali</label><input id="nProfili" type="number" value="6" min="0" step="1"></div>
+        <div><label>Tariffa per profilo (€)</label><input id="tarProfilo" type="number" value="1200" min="0" step="100"></div>
+        <div></div>
+        <div><label>Giornate audit / anno</label><input id="ggAudit" type="number" value="3" min="0" step="0.5"></div>
+        <div><label>Tariffa giornaliera (€)</label><input id="tarGiorno" type="number" value="900" min="0" step="50"></div>
+        <div></div>
       </div>
       <div class="cmp" style="margin-top:10px">
-        <div class="cmpcard pun"><div class="t">Risparmio biomassa</div><div class="b" id="vRisAnno">—</div><div class="s" id="vRisPct"></div></div>
-        <div class="cmpcard std"><div class="t">Risparmio cumulato</div><div class="b" id="vRisCum">—</div><div class="s" id="vRisCumN"></div></div>
-        <div class="cmpcard ris"><div class="t">Compenso proponibile</div><div class="b" id="vFee">—</div><div class="s" id="vFee3"></div></div>
+        <div class="cmpcard pun"><div class="t">Risparmio cliente</div><div class="b" id="vRisAnno">—</div><div class="s" id="vRisCumN"></div></div>
+        <div class="cmpcard ris"><div class="t">Canone annuo (tuo)</div><div class="b" id="vCanone">—</div><div class="s" id="vCanoneBreak"></div></div>
+        <div class="cmpcard std"><div class="t">Totale sul contratto</div><div class="b" id="vContratto">—</div><div class="s" id="vQuota"></div></div>
       </div>
-      <div class="note" id="vNote">Margine a <b>configurazione impianto FISSA</b> (ottimizzi solo le biomasse): qualifica il cliente potenziale in ALTO / MEDIO / NULLO. Il <b>compenso</b> mostrato è il <b>tuo guadagno</b>: una tantum (% del risparmio del 1° anno) oppure, in alternativa, una quota su 3 anni. Il <b>risparmio del cliente è invece ricorrente ogni anno</b> (vedi "Risparmio cumulato"). Stima orientativa — legalo al risparmio certificato.</div>
+      <div class="note" id="vNote">Modello a <b>canone annuo ricorrente</b>: i valori puntuali cambiano ogni anno coi fornitori → è un servizio, non una perizia una tantum. Canone = <b>base</b> + <b>profili</b> (coltura×zona: i ~40 fornitori raggruppati in pochi profili) + <b>assistenza in verifica</b> (giornate × tariffa, difesa dei calcoli davanti all'auditor) + <b>% sul risparmio CERTIFICATO</b> (post-audit). <b>"Cliente netto"</b> = quanto resta al cliente dopo il tuo compenso: se ~0, non è vendibile. Stima orientativa.</div>
     </div>
   </div>
 </div>
@@ -429,26 +436,31 @@ function confronto(EF,EmixT,lordo,c){
   valoreCommerciale(ris,costS);
 }
 
-/* Valore commerciale del servizio: classifica il margine e stima la fee (config impianto fissa) */
+/* Valore commerciale: canone annuo = base + profili + assistenza verifica + % sul risparmio certificato */
 function valoreCommerciale(ris,costS){
   const set=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
   const bm=document.getElementById('badgeMargine');
   if(ris===null){ bm.className='badge'; bm.textContent='—';
-    ['vRisAnno','vRisCum','vFee'].forEach(id=>set(id,'n/d')); ['vRisPct','vRisCumN','vFee3'].forEach(id=>set(id,'')); return; }
-  const anni=Math.max(1,+document.getElementById('anniInc').value||10);
-  const feePct=Math.max(0,+document.getElementById('feePct').value||0);
-  const risCum=ris*anni, feeY1=ris*feePct/100, fee3=ris*0.15*Math.min(anni,3);
+    ['vRisAnno','vCanone','vContratto'].forEach(id=>set(id,'n/d')); ['vRisCumN','vCanoneBreak','vQuota'].forEach(id=>set(id,'')); return; }
+  const num=id=>{const e=document.getElementById(id); return Math.max(0,+(e&&e.value)||0);};
+  const anni=Math.max(1,+document.getElementById('anniInc').value||1);
+  const base=num('baseFee'), nP=num('nProfili'), tP=num('tarProfilo'), gg=num('ggAudit'), tG=num('tarGiorno'), pct=num('pctCert');
   let clazz,lab;
   if(ris<=0){clazz='no';lab='✗ NULLO — il puntuale non riduce il costo: non vendibile';}
   else if(ris<20000){clazz='no';lab='✗ NULLO — risparmio troppo basso: non vendibile';}
   else if(ris<150000){clazz='mid';lab='● MEDIO — valore medio';}
   else {clazz='ok';lab='★ ALTO — alto valore';}
   bm.className='badge '+clazz; bm.textContent=lab;
+  const risCum=ris*anni;
   set('vRisAnno',(ris>=0?'+':'')+fmt0(ris)+' €/anno');
-  set('vRisPct',costS>0?('−'+(ris/costS*100).toFixed(1)+'% sul costo biomassa'):'');
-  set('vRisCum',fmt0(risCum)+' €'); set('vRisCumN','risparmio su '+anni+' anni');
-  set('vFee', ris>0?fmt0(feeY1)+' €':'—');
-  set('vFee3', ris>0?('una tantum · oppure '+fmt0(fee3)+' € totali in 3 anni (15%/anno)'):'');
+  set('vRisCumN','cumulato '+fmt0(risCum)+' € su '+anni+' anni');
+  const costoProfili=nP*tP, costoAudit=gg*tG, quota=ris>0?ris*pct/100:0;
+  const canone=base+costoProfili+costoAudit+quota;
+  set('vCanone',fmt0(canone)+' €/anno');
+  set('vCanoneBreak','base '+fmt0(base)+' + profili '+fmt0(costoProfili)+' + audit '+fmt0(costoAudit)+' + '+pct+'% risp. '+fmt0(quota));
+  const nettoCliente=ris-canone;
+  set('vContratto',fmt0(canone*anni)+' €');
+  set('vQuota', ris>0?('su '+anni+' anni · cliente netto '+(nettoCliente>=0?'+':'')+fmt0(nettoCliente)+' €/anno'):'risparmio nullo — servizio non giustificato');
 }
 // converte frazione energia effluente -> frazione peso (servono rese rappresentative)
 function wsFromXe(xe,gc,ge){
@@ -499,7 +511,7 @@ function fmt0(n){return Math.round(n).toLocaleString('it-IT');}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // listeners sui campi impianto
-['resaImp','target','regime','dig','offgas','portata','ore','tariffa','migEc','migCred','migEtd','anniInc','feePct'].forEach(id=>{
+['resaImp','target','regime','dig','offgas','portata','ore','tariffa','migEc','migCred','migEtd','anniInc','baseFee','pctCert','nProfili','tarProfilo','ggAudit','tarGiorno'].forEach(id=>{
   document.getElementById(id).addEventListener('input',calc);
 });
 // Comparatore EF <-> target soglia di legge: 80 (altri usi/rete) -> 80% ; 94 (trasporti) -> 65%
