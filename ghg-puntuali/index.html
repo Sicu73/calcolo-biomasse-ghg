@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GHG puntuali biomasse - UNI/TS 11567:2024</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>GHG puntuali biomasse</h1>
+      <p>Laboratorio offline per profili fornitore + matrice, con dati UNI derivati dal workbook lotto 1.</p>
+    </div>
+    <a class="back-link" href="../index.html">Simulatore economico</a>
+  </header>
+
+  <main class="layout">
+    <aside class="panel">
+      <h2>Pratica</h2>
+      <label>Codice pratica<input id="projectCode" value="GHG-PUNT-2026-001"></label>
+      <label>Fornitore<input id="supplierName" value="Fornitore agricolo"></label>
+      <label>Anno / campagna<input id="campaignYear" type="number" value="2026"></label>
+      <label>Periodo lotto<input id="lotPeriod" value="01/01/2026 - 31/12/2026"></label>
+
+      <h2>Matrice</h2>
+      <label>Matrice<select id="matrixSelect"></select></label>
+      <label>Digestato<select id="digestate">
+        <option value="Dig.C">Digestato chiuso</option>
+        <option value="Dig.A">Digestato aperto</option>
+      </select></label>
+      <label>Upgrading<select id="offgas">
+        <option>UpG 1%</option>
+        <option>UpG 0.2%</option>
+        <option>S/C OffG</option>
+        <option>C/C OffG</option>
+      </select></label>
+
+      <button id="downloadProfile" class="primary">Esporta profilo JSON</button>
+      <button id="downloadCsv" class="secondary">Esporta catalogo CSV</button>
+    </aside>
+
+    <section class="content">
+      <section class="kpis">
+        <div class="kpi">
+          <span>Matrici UNI importate</span>
+          <strong id="kMatrices">-</strong>
+        </div>
+        <div class="kpi">
+          <span>Righe emissioni standard</span>
+          <strong id="kStandards">-</strong>
+        </div>
+        <div class="kpi">
+          <span>Stato profilo</span>
+          <strong id="kStatus">-</strong>
+        </div>
+        <div class="kpi">
+          <span>E puntuale</span>
+          <strong id="kPunctual">-</strong>
+        </div>
+      </section>
+
+      <section class="panel wide">
+        <div class="section-head">
+          <div>
+            <h2>Calcolo lotto</h2>
+            <p>Normalizzazione ST, energia biomassa e confronto con la riga standard più vicina.</p>
+          </div>
+          <span id="matrixCategory" class="tag">-</span>
+        </div>
+        <div class="form-grid">
+          <label>Quantità tal quale (t/lotto)<input id="quantityT" type="number" value="1000" min="0" step="1"></label>
+          <label>ST reale (%)<input id="realSt" type="number" value="35" min="0" max="100" step="0.1"></label>
+          <label>ST riferimento (%)<input id="refSt" readonly></label>
+          <label>MJ/kg matrice tq<input id="mjKg" readonly></label>
+        </div>
+        <div class="result-grid">
+          <div><span>Peso normalizzato ST</span><strong id="normTon">-</strong></div>
+          <div><span>Energia lotto</span><strong id="energyMj">-</strong></div>
+          <div><span>CH4 stimato</span><strong id="methaneM3">-</strong></div>
+          <div><span>E standard selezionata</span><strong id="standardTotal">-</strong></div>
+        </div>
+      </section>
+
+      <section class="panel wide">
+        <div class="section-head">
+          <div>
+            <h2>Valori puntuali da dati primari</h2>
+            <p>Prima versione operativa: ec colture, etd trasporto, credito effluenti.</p>
+          </div>
+          <span id="evidenceStatus" class="tag warn">Evidenze incomplete</span>
+        </div>
+
+        <div class="calc-columns">
+          <div class="calc-card">
+            <h3>ec coltivazione</h3>
+            <label>Resa agricola (t/ha)<input id="yieldTha" type="number" value="55" min="0" step="0.1"></label>
+            <label>Azoto minerale (kg N/ha)<input id="nitrogenKgHa" type="number" value="120" min="0" step="1"></label>
+            <label>Gasolio (L/ha)<input id="dieselLHa" type="number" value="85" min="0" step="1"></label>
+            <label>Energia elettrica (kWh/ha)<input id="electricityKwhHa" type="number" value="0" min="0" step="1"></label>
+            <label>Fattore N (kgCO2e/kg N)<input id="factorN" type="number" value="6" min="0" step="0.01"></label>
+            <label>Documento ec<input id="docEc" type="file"></label>
+            <strong id="ecOut">-</strong>
+          </div>
+
+          <div class="calc-card">
+            <h3>etd trasporto</h3>
+            <label>Distanza media (km)<input id="distanceKm" type="number" value="20" min="0" step="0.1"></label>
+            <label>Fattore mezzo (kgCO2e/tkm)<input id="transportFactor" type="number" value="0.09" min="0" step="0.001"></label>
+            <label>Documento trasporto<input id="docTransport" type="file"></label>
+            <strong id="etdOut">-</strong>
+          </div>
+
+          <div class="calc-card">
+            <h3>credito effluenti</h3>
+            <label>Scenario evitato<select id="avoidedScenario">
+              <option value="none">Nessun credito puntuale</option>
+              <option value="open_storage">Stoccaggio aperto evitato</option>
+              <option value="covered_storage">Stoccaggio coperto migliorato</option>
+            </select></label>
+            <label>Credito evitato (kgCO2e/t)<input id="avoidedKgT" type="number" value="0" step="1"></label>
+            <label>Documento credito<input id="docCredit" type="file"></label>
+            <strong id="creditOut">-</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel wide">
+        <h2>Catalogo matrici da workbook UNI</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Matrice</th><th>Categoria</th><th>ST</th><th>CH4 m3/t tq</th><th>MJ/kg tq</th><th>Fonte</th></tr>
+            </thead>
+            <tbody id="matrixRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel wide">
+        <h2>Traccia calcolo</h2>
+        <pre id="traceBox"></pre>
+      </section>
+    </section>
+  </main>
+
+  <script src="data/uni11567-derived.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

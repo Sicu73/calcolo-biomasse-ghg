@@ -16,6 +16,7 @@
   header{background:#10261F;color:#fff;padding:18px 26px;border-bottom:4px solid var(--green)}
   header h1{margin:0;font-size:20px;font-weight:700}
   header p{margin:4px 0 0;font-size:12.5px;color:#9FC3B4}
+  header a{display:inline-block;margin-top:10px;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:6px;padding:7px 11px;text-decoration:none;font-size:12.5px;font-weight:700}
   .wrap{max-width:1280px;margin:0 auto;padding:20px;display:grid;grid-template-columns:430px 1fr;gap:20px;align-items:start}
   @media(max-width:980px){.wrap{grid-template-columns:1fr}}
   .card{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
@@ -27,10 +28,12 @@
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
   /* tabella matrici */
+  .table-scroll{width:100%;overflow-x:auto}
   table.mat{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
   table.mat th{text-align:left;font-size:10.5px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;padding:4px 4px;font-weight:600}
   table.mat td{padding:2px 3px}
   table.mat input,table.mat select{padding:5px 6px;font-size:12.5px}
+  @media(max-width:680px){table.mat{min-width:660px}.grid2,.grid3{grid-template-columns:1fr}}
   .btn{display:inline-block;border:none;border-radius:6px;padding:8px 13px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
   .btn-add{background:var(--greenbg);color:var(--greend)}
   .btn-reset{background:var(--purpbg);color:var(--purp)}
@@ -78,6 +81,7 @@
 <header>
   <h1>Simulatore biomasse &amp; risparmio GHG</h1>
   <p>UNI/TS 11567:2024 · scegli le matrici e il prezzo → tonnellate, GHG e costo calcolati a risparmio GHG 80%</p>
+  <a href="ghg-puntuali/">Apri laboratorio GHG puntuali</a>
 </header>
 
 <div class="wrap">
@@ -118,14 +122,16 @@
 
     <div class="card">
       <h2>Biomasse — tonnellate / anno</h2>
-      <table class="mat"><thead><tr>
-        <th style="width:26%">Matrice</th><th style="width:20%">Categoria</th><th>Resa auto<br>Sm³CH₄/t</th><th>Prezzo<br>€/t</th><th>Quota<br>% peso</th><th></th>
-      </tr></thead><tbody id="matBody"></tbody></table>
+      <div class="table-scroll">
+        <table class="mat"><thead><tr>
+          <th style="width:26%">Matrice</th><th style="width:20%">Categoria</th><th>Resa auto<br>Sm³CH₄/t</th><th>Prezzo<br>€/t</th><th>Quota<br>% peso</th><th></th>
+        </tr></thead><tbody id="matBody"></tbody></table>
+      </div>
       <div class="btnrow">
         <button class="btn btn-add" onclick="addRow()">+ Aggiungi matrice</button>
         <button class="btn btn-reset" onclick="resetSim()">↺ Reimposta scenario</button>
       </div>
-      <div class="note"><b>Quota % peso</b> = peso relativo della matrice <b>entro il suo gruppo</b> (coltura/sottoprodotti ↔ effluente), normalizzata: le tonnellate nel gruppo seguono questo rapporto. Il bilancio coltura↔effluente lo calcola il tool per centrare il <b>risparmio GHG 80%</b> → imposti le proporzioni, il vincolo GHG resta sempre rispettato.</div>
+      <div class="note"><b>Quota % peso</b> = peso relativo della matrice <b>entro il suo gruppo</b> (coltura/sottoprodotti ↔ effluente), normalizzata: le tonnellate nel gruppo seguono questo rapporto. Il bilancio coltura↔effluente lo calcola il tool per centrare il target GHG quando il target cade nell'intervallo ottenibile; se non è ottenibile viene mostrato il mix al limite più vicino.</div>
     </div>
 
     <div class="card">
@@ -337,7 +343,15 @@ function calc(){
 
   const bt=document.getElementById('badgeTarget');
   const okT=saving>=target-1e-9;
-  bt.className='badge '+(okT?'ok':'no'); bt.textContent=(okT?'✓ ':'✗ ')+'Obiettivo '+(target*100).toFixed(0)+'%';
+  if(!built.ok){
+    bt.className='badge no'; bt.textContent='✗ Dati insufficienti';
+  }else if(built.targetReachable){
+    bt.className='badge ok'; bt.textContent='✓ Obiettivo '+(target*100).toFixed(0)+'% centrato';
+  }else if(okT){
+    bt.className='badge mid'; bt.textContent='⚠ Obiettivo superato, mix al limite';
+  }else{
+    bt.className='badge no'; bt.textContent='✗ Obiettivo '+(target*100).toFixed(0)+'% non raggiungibile';
+  }
 
   let h='';
   rows.forEach(r=>{h+=`<tr><td>${esc(r.nome)}</td><td>${fmt0(r.ton)}</td><td>${totTon>0?(r.ton/totTon*100).toFixed(1):'0'}%</td><td>${fmt0(r.energia)}</td><td>${(r.quota*100).toFixed(1)}%</td><td>${r.E.toFixed(1)}</td></tr>`;});
@@ -345,8 +359,10 @@ function calc(){
   document.getElementById('detBody').innerHTML=h;
 
   const rn=document.getElementById('rebNote');
-  if(built.ok) rn.textContent='Tonnellate calcolate per centrare il risparmio GHG '+(target*100).toFixed(0)+'% esatto (effettivo '+(saving*100).toFixed(1)+'%) a produzione lorda invariata. Il puntuale richiede meno effluente per lo stesso risparmio. Cambiando matrici/rese/costi/impianto si ricalcolano.';
-  else rn.textContent='Per dimensionare il mix all\'obiettivo servono almeno una coltura/FORSU e un effluente.';
+  if(!built.ok) rn.textContent='Per dimensionare il mix all\'obiettivo servono almeno una coltura/FORSU/sottoprodotto e un effluente, oltre a una produzione lorda valida.';
+  else if(built.targetReachable) rn.textContent='Tonnellate calcolate per centrare il risparmio GHG '+(target*100).toFixed(0)+'% esatto (effettivo '+(saving*100).toFixed(1)+'%) a produzione lorda invariata. Il puntuale richiede meno effluente per lo stesso risparmio. Cambiando matrici/rese/costi/impianto si ricalcolano.';
+  else if(okT) rn.textContent='Il target GHG '+(target*100).toFixed(0)+'% è superato anche usando il gruppo al limite più vicino: non esiste un bilanciamento coltura↔effluente che lo centri esattamente con queste matrici e questi parametri. Risparmio effettivo '+(saving*100).toFixed(1)+'%.';
+  else rn.textContent='Il target GHG '+(target*100).toFixed(0)+'% non è raggiungibile con queste matrici e questi parametri: viene mostrato il mix al limite più favorevole. Risparmio effettivo '+(saving*100).toFixed(1)+'%.';
 
   const aux=gross-netto;
   document.getElementById('prodCheck').textContent=
@@ -358,7 +374,7 @@ function calc(){
 /* Dimensiona il mix per CENTRARE E_mix = EmixT e PRODURRE il lordo.
    La QUOTA % imposta dall'utente = peso (tonnellate) relativo della matrice ENTRO il suo gruppo
    (coltura/sottoprodotti/FORSU ↔ effluente). Il rapporto coltura↔effluente lo calcola il tool (xe)
-   per centrare il target -> il vincolo 80% è SEMPRE rispettato qualunque siano le quote. */
+   per centrare il target quando EmixT cade nell'intervallo ottenibile. */
 function buildMix(EmixT,lordo,c,g){
   const col=matrici.filter(m=>m.cat!=='effluente');
   const eff=matrici.filter(m=>m.cat==='effluente');
@@ -368,13 +384,15 @@ function buildMix(EmixT,lordo,c,g){
   if(col.length===0||eff.length===0||lordo<=0){
     const tot=matrici.reduce((s,x)=>s+ew(x),0);
     const rows=matrici.map(m=>{const sh=tot>0?ew(m)/tot:(matrici.length?1/matrici.length:0);const en=sh*lordo;const ton=m.resa>0?en/m.resa:0;return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g,m.etd),costoTot:ton*m.costo};});
-    return {rows,ok:false};
+    return {rows,ok:false,targetReachable:false,reason:'missing-groups'};
   }
   // GHG medio per gruppo, pesato sulle QUOTE (peso) scelte dall'utente
   const Ecol=col.reduce((s,m)=>s+eshare(m,col)*Emat(m.cat,c,g,m.etd),0);
   const Eeff=eff.reduce((s,m)=>s+eshare(m,eff)*Emat(m.cat,c,g,m.etd),0);
-  // bilancio coltura↔effluente che CENTRA il target GHG esatto: E_mix = EmixT -> saving SEMPRE = target
-  let xe=(Ecol===Eeff)?0:(Ecol-EmixT)/(Ecol-Eeff); xe=Math.max(0,Math.min(1,xe));
+  // bilancio coltura↔effluente che centra il target se E_mix richiesto è compreso fra i due gruppi
+  const rawXe=(Ecol===Eeff)?0:(Ecol-EmixT)/(Ecol-Eeff);
+  const targetReachable=(Ecol===Eeff)?Math.abs(Ecol-EmixT)<1e-9:(rawXe>=0&&rawXe<=1);
+  let xe=Math.max(0,Math.min(1,Number.isFinite(rawXe)?rawXe:0));
   const enCol=(1-xe)*lordo, enEff=xe*lordo;     // energia totale per gruppo, ripartita sul LORDO
   const rows=matrici.map(m=>{
     const isEff=m.cat==='effluente';
@@ -382,7 +400,7 @@ function buildMix(EmixT,lordo,c,g){
     const ton=m.resa>0?en/m.resa:0;
     return {nome:m.nome,cat:m.cat,ton,energia:en,quota:lordo>0?en/lordo:0,E:Emat(m.cat,c,g,m.etd),costoTot:ton*m.costo};
   });
-  return {rows,ok:true};
+  return {rows,ok:true,targetReachable,Ecol,Eeff,rawXe,xe};
 }
 
 /* Ribilancia il mix coltura↔effluente coi valori puntuali per tenere E_mix = EmixTarget */
@@ -415,10 +433,19 @@ function confronto(EF,EmixT,lordo,c){
     return;
   }
   const tgt=(EF>0?((EF-EmixT)/EF*100):0).toFixed(0);
-  note.innerHTML='Stesso risparmio GHG <b>'+tgt+'%</b> e stesso lordo nei due scenari: cambia solo il mix coltura↔effluente coi valori standard vs puntuali. Coi <b>valori puntuali</b> serve <b>meno effluente</b> per lo stesso 80% → <b>stessa sostenibilità, meno costo.</b>';
   const gPun=ghgParams(); gPun.mode='puntuale';
-  const S=buildMix(EmixT,lordo,c,{mode:'standard'}).rows;
-  const P=buildMix(EmixT,lordo,c,gPun).rows;
+  const bStd=buildMix(EmixT,lordo,c,{mode:'standard'});
+  const bPun=buildMix(EmixT,lordo,c,gPun);
+  if(!bStd.targetReachable||!bPun.targetReachable){
+    ['cStd','cPun','cRis'].forEach(id=>document.getElementById(id).textContent='n/d');
+    ['cStdMix','cPunMix','cRisPct'].forEach(id=>document.getElementById(id).textContent='');
+    note.innerHTML='Confronto sospeso: il risparmio GHG <b>'+tgt+'%</b> non è centrabile esattamente in entrambi gli scenari. Modifica target, matrici o parametri impianto per confrontare standard e puntuale a parità di sostenibilità.';
+    valoreCommerciale(null,0);
+    return;
+  }
+  note.innerHTML='Stesso risparmio GHG <b>'+tgt+'%</b> e stesso lordo nei due scenari: cambia solo il mix coltura↔effluente coi valori standard vs puntuali. Coi <b>valori puntuali</b> serve <b>meno effluente</b> per lo stesso target → <b>stessa sostenibilità, meno costo.</b>';
+  const S=bStd.rows;
+  const P=bPun.rows;
   const sum=(rows,f)=>rows.reduce((s,r)=>s+f(r),0);
   const emixOf=rows=>sum(rows,r=>r.quota*r.E);
   const svOf=rows=>(EF>0?(EF-emixOf(rows))/EF*100:0);
