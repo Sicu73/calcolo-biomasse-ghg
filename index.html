@@ -77,7 +77,7 @@
 <body>
 <header>
   <h1>Simulatore biomasse &amp; risparmio GHG</h1>
-  <p>UNI/TS 11567:2024 · scegli le matrici e il prezzo → tonnellate, GHG e costo calcolati a saving 80%</p>
+  <p>UNI/TS 11567:2024 · scegli le matrici e il prezzo → tonnellate, GHG e costo calcolati a risparmio GHG 80%</p>
 </header>
 
 <div class="wrap">
@@ -91,7 +91,7 @@
           <select id="ef"><option value="80">80 — altri usi</option><option value="94">94 — trasporti</option></select></div>
       </div>
       <div class="grid2">
-        <div><label>Target risparmio GHG (%)</label><input id="target" type="number" value="80" min="0" max="100" step="1"></div>
+        <div><label>Obiettivo risparmio GHG (%)</label><input id="target" type="number" value="80" min="0" max="100" step="1"></div>
         <div><label>Energia di processo</label>
           <select id="regime"><option value="rinnovabile">Rinnovabile (autoconsumo)</option><option value="base">Base (rete/fossile)</option></select></div>
       </div>
@@ -125,7 +125,7 @@
         <button class="btn btn-add" onclick="addRow()">+ Aggiungi matrice</button>
         <button class="btn btn-reset" onclick="resetSim()">↺ Reimposta scenario</button>
       </div>
-      <div class="note"><b>Quota % peso</b> = peso relativo della matrice <b>entro il suo gruppo</b> (coltura/sottoprodotti ↔ effluente), normalizzata: le tonnellate nel gruppo seguono questo rapporto. Il bilancio coltura↔effluente lo calcola il tool per centrare il <b>saving 80%</b> → imposti le proporzioni, il vincolo GHG resta sempre rispettato.</div>
+      <div class="note"><b>Quota % peso</b> = peso relativo della matrice <b>entro il suo gruppo</b> (coltura/sottoprodotti ↔ effluente), normalizzata: le tonnellate nel gruppo seguono questo rapporto. Il bilancio coltura↔effluente lo calcola il tool per centrare il <b>risparmio GHG 80%</b> → imposti le proporzioni, il vincolo GHG resta sempre rispettato.</div>
     </div>
 
     <div class="card">
@@ -162,7 +162,7 @@
     </div>
 
     <div class="card">
-      <h2>Confronto Standard ↔ Puntuale (a parità di saving)</h2>
+      <h2>Confronto Standard ↔ Puntuale (a parità di risparmio GHG)</h2>
       <div class="cmp">
         <div class="cmpcard std"><div class="t">Costo — GHG standard</div><div class="b" id="cStd">—</div><div class="s" id="cStdMix"></div></div>
         <div class="cmpcard pun"><div class="t">Costo — GHG puntuale</div><div class="b" id="cPun">—</div><div class="s" id="cPunMix"></div></div>
@@ -176,14 +176,14 @@
       <div style="margin-bottom:10px"><span id="badgeMargine" class="badge">—</span></div>
       <div class="grid2">
         <div><label>Anni incentivo residui</label><input id="anniInc" type="number" value="10" min="1" step="1"></div>
-        <div><label>Success fee anno-1 (%)</label><input id="feePct" type="number" value="20" min="0" step="1"></div>
+        <div><label>Compenso: % del risparmio (1° anno)</label><input id="feePct" type="number" value="20" min="0" step="1"></div>
       </div>
       <div class="cmp" style="margin-top:10px">
         <div class="cmpcard pun"><div class="t">Risparmio biomassa</div><div class="b" id="vRisAnno">—</div><div class="s" id="vRisPct"></div></div>
         <div class="cmpcard std"><div class="t">Risparmio cumulato</div><div class="b" id="vRisCum">—</div><div class="s" id="vRisCumN"></div></div>
-        <div class="cmpcard ris"><div class="t">Fee proponibile</div><div class="b" id="vFee">—</div><div class="s" id="vFee3"></div></div>
+        <div class="cmpcard ris"><div class="t">Compenso proponibile</div><div class="b" id="vFee">—</div><div class="s" id="vFee3"></div></div>
       </div>
-      <div class="note" id="vNote">Margine a <b>configurazione impianto FISSA</b> (ottimizzi solo le biomasse): qualifica il prospect in ALTO / MEDIO / NULLO. Stima orientativa — la fee va legata al <b>risparmio effettivamente certificato</b>, non a quello teorico.</div>
+      <div class="note" id="vNote">Margine a <b>configurazione impianto FISSA</b> (ottimizzi solo le biomasse): qualifica il cliente potenziale in ALTO / MEDIO / NULLO. Stima orientativa — il compenso va legato al <b>risparmio effettivamente certificato</b>, non a quello teorico.</div>
     </div>
   </div>
 </div>
@@ -330,7 +330,7 @@ function calc(){
 
   const bt=document.getElementById('badgeTarget');
   const okT=saving>=target-1e-9;
-  bt.className='badge '+(okT?'ok':'no'); bt.textContent=(okT?'✓ ':'✗ ')+'Target '+(target*100).toFixed(0)+'%';
+  bt.className='badge '+(okT?'ok':'no'); bt.textContent=(okT?'✓ ':'✗ ')+'Obiettivo '+(target*100).toFixed(0)+'%';
 
   let h='';
   rows.forEach(r=>{h+=`<tr><td>${esc(r.nome)}</td><td>${fmt0(r.ton)}</td><td>${totTon>0?(r.ton/totTon*100).toFixed(1):'0'}%</td><td>${fmt0(r.energia)}</td><td>${(r.quota*100).toFixed(1)}%</td><td>${r.E.toFixed(1)}</td></tr>`;});
@@ -338,8 +338,8 @@ function calc(){
   document.getElementById('detBody').innerHTML=h;
 
   const rn=document.getElementById('rebNote');
-  if(built.ok) rn.textContent='Tonnellate calcolate per centrare il saving '+(target*100).toFixed(0)+'% esatto (effettivo '+(saving*100).toFixed(1)+'%) a produzione lorda invariata. Il puntuale richiede meno effluente per lo stesso saving. Cambiando matrici/rese/costi/impianto si ricalcolano.';
-  else rn.textContent='Per dimensionare il mix al target servono almeno una coltura/FORSU e un effluente.';
+  if(built.ok) rn.textContent='Tonnellate calcolate per centrare il risparmio GHG '+(target*100).toFixed(0)+'% esatto (effettivo '+(saving*100).toFixed(1)+'%) a produzione lorda invariata. Il puntuale richiede meno effluente per lo stesso risparmio. Cambiando matrici/rese/costi/impianto si ricalcolano.';
+  else rn.textContent='Per dimensionare il mix all\'obiettivo servono almeno una coltura/FORSU e un effluente.';
 
   const aux=gross-netto;
   document.getElementById('prodCheck').textContent=
@@ -408,7 +408,7 @@ function confronto(EF,EmixT,lordo,c){
     return;
   }
   const tgt=(EF>0?((EF-EmixT)/EF*100):0).toFixed(0);
-  note.innerHTML='Stesso saving <b>'+tgt+'%</b> e stesso lordo nei due scenari: cambia solo il mix coltura↔effluente coi valori standard vs puntuali. Coi <b>valori puntuali</b> serve <b>meno effluente</b> per lo stesso 80% → <b>stessa sostenibilità, meno costo.</b>';
+  note.innerHTML='Stesso risparmio GHG <b>'+tgt+'%</b> e stesso lordo nei due scenari: cambia solo il mix coltura↔effluente coi valori standard vs puntuali. Coi <b>valori puntuali</b> serve <b>meno effluente</b> per lo stesso 80% → <b>stessa sostenibilità, meno costo.</b>';
   const gPun=ghgParams(); gPun.mode='puntuale';
   const S=buildMix(EmixT,lordo,c,{mode:'standard'}).rows;
   const P=buildMix(EmixT,lordo,c,gPun).rows;
@@ -423,8 +423,8 @@ function confronto(EF,EmixT,lordo,c){
   document.getElementById('cStd').textContent=fmt0(costS)+' €';
   document.getElementById('cPun').textContent=fmt0(costP)+' €';
   document.getElementById('cRis').textContent=(ris>=0?'+':'')+fmt0(ris)+' €';
-  document.getElementById('cStdMix').textContent='saving '+svS.toFixed(1)+'% · '+fmt0(tC(S))+' t coltura · '+fmt0(tE(S))+' t effluente ('+(ws(S)*100).toFixed(0)+'% peso)';
-  document.getElementById('cPunMix').textContent='saving '+svP.toFixed(1)+'% · '+fmt0(tC(P))+' t coltura · '+fmt0(tE(P))+' t effluente ('+(ws(P)*100).toFixed(0)+'% peso)';
+  document.getElementById('cStdMix').textContent='risparmio GHG '+svS.toFixed(1)+'% · '+fmt0(tC(S))+' t coltura · '+fmt0(tE(S))+' t effluente ('+(ws(S)*100).toFixed(0)+'% peso)';
+  document.getElementById('cPunMix').textContent='risparmio GHG '+svP.toFixed(1)+'% · '+fmt0(tC(P))+' t coltura · '+fmt0(tE(P))+' t effluente ('+(ws(P)*100).toFixed(0)+'% peso)';
   document.getElementById('cRisPct').textContent=(costS>0?('−'+(ris/costS*100).toFixed(1)+'% sul costo biomassa'):'');
   valoreCommerciale(ris,costS);
 }
@@ -439,10 +439,10 @@ function valoreCommerciale(ris,costS){
   const feePct=Math.max(0,+document.getElementById('feePct').value||0);
   const risCum=ris*anni, feeY1=ris*feePct/100, fee3=ris*0.15*Math.min(anni,3);
   let clazz,lab;
-  if(ris<=0){clazz='no';lab='✗ NULLO — il puntuale non riduce il costo: fuori target';}
-  else if(ris<20000){clazz='no';lab='✗ NULLO — risparmio troppo basso: fuori target';}
-  else if(ris<150000){clazz='mid';lab='● MEDIO — cliente standard';}
-  else {clazz='ok';lab='★ ALTO — cliente premium';}
+  if(ris<=0){clazz='no';lab='✗ NULLO — il puntuale non riduce il costo: non vendibile';}
+  else if(ris<20000){clazz='no';lab='✗ NULLO — risparmio troppo basso: non vendibile';}
+  else if(ris<150000){clazz='mid';lab='● MEDIO — valore medio';}
+  else {clazz='ok';lab='★ ALTO — alto valore';}
   bm.className='badge '+clazz; bm.textContent=lab;
   set('vRisAnno',(ris>=0?'+':'')+fmt0(ris)+' €/anno');
   set('vRisPct',costS>0?('−'+(ris/costS*100).toFixed(1)+'% sul costo biomassa'):'');
