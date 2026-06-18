@@ -54,13 +54,32 @@ table{width:100%;border-collapse:collapse;min-width:860px;font-size:12.5px;backg
 th{position:sticky;top:0;background:#15372d;color:#fff;text-align:left;padding:8px}
 td{border-top:1px solid var(--line);padding:7px 8px;vertical-align:top}
 tbody tr:nth-child(even){background:#fbfaf7}
-pre{white-space:pre-wrap;word-break:break-word;background:#16231f;color:#d7eee5;border-radius:8px;padding:14px;min-height:140px;font-size:12px;margin:0}
+.trace-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.trace-card{border:1px solid var(--line);border-radius:8px;background:#fbfaf7;padding:14px}
+.trace-card.full{grid-column:1/-1}
+.trace-card h3{margin:0 0 10px;font-size:13px;color:var(--green);text-transform:uppercase;letter-spacing:.8px}
+.trace-list{display:grid;gap:7px;margin:0}
+.trace-row{display:grid;grid-template-columns:150px 1fr;gap:10px;border-top:1px solid #ebe7dc;padding-top:7px}
+.trace-row:first-child{border-top:0;padding-top:0}
+.trace-row span{color:var(--muted);font-size:12px;font-weight:800}
+.trace-row strong{font-size:13px;color:var(--ink);word-break:break-word}
+.trace-formulas{display:grid;gap:8px}
+.formula{display:grid;gap:3px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px}
+.formula span{font-size:12px;color:var(--purple);font-weight:800}
+.formula code{font-size:12px;white-space:normal;word-break:break-word;color:#28332f}
+.evidence-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.evidence-chip{border-radius:999px;padding:7px 10px;font-size:12px;font-weight:800;text-align:center;background:#f9e4e1;color:var(--red)}
+.evidence-chip.ok{background:var(--green2);color:var(--green)}
+details.trace-raw{grid-column:1/-1;border:1px solid var(--line);border-radius:8px;background:#16231f;color:#d7eee5;padding:12px}
+details.trace-raw summary{cursor:pointer;font-size:12px;font-weight:800}
+details.trace-raw pre{white-space:pre-wrap;word-break:break-word;font-size:12px;margin:10px 0 0}
 @media(max-width:1050px){
   .layout{grid-template-columns:1fr}
-  .kpis,.form-grid,.result-grid,.calc-columns{grid-template-columns:1fr 1fr}
+  .kpis,.form-grid,.result-grid,.calc-columns,.trace-grid{grid-template-columns:1fr 1fr}
+  .evidence-list{grid-template-columns:1fr 1fr}
 }
 @media(max-width:680px){
   .app-header{display:block}
   .back-link{display:inline-block;margin-top:12px}
-  .kpis,.form-grid,.result-grid,.calc-columns{grid-template-columns:1fr}
+  .kpis,.form-grid,.result-grid,.calc-columns,.trace-grid,.evidence-list{grid-template-columns:1fr}
 }

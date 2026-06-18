@@ -11,6 +11,7 @@ DATA.standardRows.forEach((row) => {
 });
 
 const $ = (id) => document.getElementById(id);
+const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = (n, d = 2) => Number.isFinite(n) ? n.toLocaleString("it-IT", { maximumFractionDigits: d, minimumFractionDigits: d }) : "-";
 const fmt0 = (n) => Number.isFinite(n) ? Math.round(n).toLocaleString("it-IT") : "-";
 const num = (id) => Number($(id).value || 0);
@@ -70,6 +71,125 @@ function evidenceComplete(matrix){
   const creditOk = matrix.category !== "effluente" || $("avoidedScenario").value === "none" || $("docCredit").files.length > 0;
   const transportOk = $("docTransport").files.length > 0;
   return { ecOk, creditOk, transportOk, complete: ecOk && creditOk && transportOk };
+}
+
+function tracePayload(result){
+  return {
+    progetto: $("projectCode").value,
+    fornitore: $("supplierName").value,
+    campagna: Number($("campaignYear").value),
+    fonteWorkbook: DATA.metadata.sourceWorkbook,
+    sourceWorkbookSha256: DATA.metadata.sourceWorkbookSha256,
+    fontePdf: DATA.metadata.sourcePdf,
+    matrice: result.matrix.name,
+    categoria: categoryLabel(result.matrix.category),
+    rigaStandard: result.standard ? {
+      row: result.standard.row,
+      filiera: result.standard.filiera,
+      digestato: result.standard.digestato,
+      offgas: result.standard.offgas,
+      ec: result.standard.ec,
+      ep: result.standard.ep,
+      etd: result.standard.etd,
+      crediti: result.standard.crediti,
+      totale: result.standardTotal
+    } : null,
+    formuleLotto: {
+      pesoNormalizzato: "quantita_t * ST_reale / ST_riferimento",
+      energiaMJ: "peso_normalizzato_t * MJ_kg_tq * 1000",
+      ec: "(N*fattoreN + gasolio*2.68 + elettricita*0.32) * 1000 / energia_MJ_ha",
+      etd: "tonnellate * km * fattore_mezzo * 1000 / energia_MJ_lotto",
+      credito: "-(tonnellate * kgCO2e_t_evitati) * 1000 / energia_MJ_lotto"
+    },
+    risultati: {
+      pesoNormalizzatoT: result.normTon,
+      energiaMj: result.energyMj,
+      metanoM3: result.methaneM3,
+      ec: result.ec,
+      etd: result.etd,
+      credito: result.credit,
+      totalePuntuale: result.punctualTotal,
+      totaleStandard: result.standardTotal,
+      differenzaVsStandard: Number.isFinite(result.standardTotal) ? result.punctualTotal - result.standardTotal : null
+    },
+    evidenze: result.evidence
+  };
+}
+
+function row(label, value){
+  return `<div class="trace-row"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+}
+
+function evidenceChip(label, ok){
+  return `<div class="evidence-chip ${ok ? "ok" : ""}">${esc(label)}: ${ok ? "OK" : "manca"}</div>`;
+}
+
+function renderTrace(result){
+  const trace = tracePayload(result);
+  const standard = trace.rigaStandard;
+  const formulas = trace.formuleLotto;
+  const rawJson = JSON.stringify(trace, null, 2);
+  $("traceBox").innerHTML = `
+    <div class="trace-card">
+      <h3>Fonte dati</h3>
+      <div class="trace-list">
+        ${row("Pratica", trace.progetto)}
+        ${row("Fornitore", trace.fornitore)}
+        ${row("Workbook", trace.fonteWorkbook)}
+        ${row("Hash workbook", trace.sourceWorkbookSha256)}
+        ${row("PDF UNI", trace.fontePdf)}
+      </div>
+    </div>
+
+    <div class="trace-card">
+      <h3>Standard UNI selezionato</h3>
+      <div class="trace-list">
+        ${row("Matrice", trace.matrice)}
+        ${row("Categoria", trace.categoria)}
+        ${row("Riga workbook", standard ? standard.row : "n/d")}
+        ${row("Filiera", standard ? standard.filiera : "n/d")}
+        ${row("Digestato", standard ? standard.digestato : "n/d")}
+        ${row("Off-gas", standard ? standard.offgas : "n/d")}
+        ${row("Totale standard", Number.isFinite(trace.risultati.totaleStandard) ? `${fmt(trace.risultati.totaleStandard, 2)} gCO2e/MJ` : "n/d")}
+      </div>
+    </div>
+
+    <div class="trace-card">
+      <h3>Risultati puntuali</h3>
+      <div class="trace-list">
+        ${row("Peso normalizzato", `${fmt(trace.risultati.pesoNormalizzatoT, 2)} t`)}
+        ${row("Energia lotto", `${fmt0(trace.risultati.energiaMj)} MJ`)}
+        ${row("Metano stimato", `${fmt0(trace.risultati.metanoM3)} m3 CH4`)}
+        ${row("ec coltivazione", `${fmt(trace.risultati.ec, 3)} gCO2e/MJ`)}
+        ${row("etd trasporto", `${fmt(trace.risultati.etd, 3)} gCO2e/MJ`)}
+        ${row("Credito", `${fmt(trace.risultati.credito, 3)} gCO2e/MJ`)}
+        ${row("Totale puntuale", `${fmt(trace.risultati.totalePuntuale, 3)} gCO2e/MJ`)}
+        ${row("Delta vs standard", trace.risultati.differenzaVsStandard === null ? "n/d" : `${fmt(trace.risultati.differenzaVsStandard, 3)} gCO2e/MJ`)}
+      </div>
+    </div>
+
+    <div class="trace-card">
+      <h3>Evidenze</h3>
+      <div class="evidence-list">
+        ${evidenceChip("ec", trace.evidenze.ecOk)}
+        ${evidenceChip("trasporto", trace.evidenze.transportOk)}
+        ${evidenceChip("credito", trace.evidenze.creditOk)}
+        ${evidenceChip("profilo", trace.evidenze.complete)}
+      </div>
+    </div>
+
+    <div class="trace-card full">
+      <h3>Formule applicate</h3>
+      <div class="trace-formulas">
+        ${Object.entries(formulas).map(([name, formula]) => `<div class="formula"><span>${esc(name)}</span><code>${esc(formula)}</code></div>`).join("")}
+      </div>
+    </div>
+
+    <details class="trace-raw">
+      <summary>JSON tecnico esportabile</summary>
+      <pre>${esc(rawJson)}</pre>
+    </details>
+  `;
 }
 
 function calculate(){
@@ -138,38 +258,7 @@ function render(){
   $("evidenceStatus").textContent = evidence.complete ? "Evidenze complete" : "Evidenze incomplete";
   $("evidenceStatus").className = evidence.complete ? "tag" : "tag warn";
 
-  $("traceBox").textContent = JSON.stringify({
-    progetto: $("projectCode").value,
-    fonteWorkbook: DATA.metadata.sourceWorkbook,
-    sourceWorkbookSha256: DATA.metadata.sourceWorkbookSha256,
-    fontePdf: DATA.metadata.sourcePdf,
-    matrice: matrix.name,
-    rigaStandard: standard ? {
-      row: standard.row,
-      filiera: standard.filiera,
-      digestato: standard.digestato,
-      offgas: standard.offgas,
-      ec: standard.ec,
-      ep: standard.ep,
-      etd: standard.etd,
-      crediti: standard.crediti,
-      totale: result.standardTotal
-    } : null,
-    formuleLotto: {
-      pesoNormalizzato: "quantita_t * ST_reale / ST_riferimento",
-      energiaMJ: "peso_normalizzato_t * MJ_kg_tq * 1000",
-      ec: "(N*fattoreN + gasolio*2.68 + elettricita*0.32) * 1000 / energia_MJ_ha",
-      etd: "tonnellate * km * fattore_mezzo * 1000 / energia_MJ_lotto",
-      credito: "-(tonnellate * kgCO2e_t_evitati) * 1000 / energia_MJ_lotto"
-    },
-    risultati: {
-      ec: result.ec,
-      etd: result.etd,
-      credito: result.credit,
-      totalePuntuale: result.punctualTotal
-    },
-    evidenze: evidence
-  }, null, 2);
+  renderTrace(result);
 }
 
 function renderCatalog(){
