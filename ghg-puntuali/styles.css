@@ -17,6 +17,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple
 .app-header{display:flex;justify-content:space-between;gap:16px;align-items:center;background:#11241e;color:#fff;padding:18px 24px;border-bottom:4px solid var(--green)}
 .app-header h1{margin:0;font-size:22px}
 .app-header p{margin:4px 0 0;color:#b8d5ca;font-size:13px}
+.top-links{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .back-link{color:#fff;background:rgba(255,255,255,.12);text-decoration:none;padding:8px 12px;border:1px solid rgba(255,255,255,.28);border-radius:6px;font-size:13px;font-weight:700;white-space:nowrap}
 .layout{max-width:1440px;margin:0 auto;padding:18px;display:grid;grid-template-columns:330px 1fr;gap:18px;align-items:start}
 .content{display:grid;gap:18px}
@@ -80,6 +81,7 @@ details.trace-raw pre{white-space:pre-wrap;word-break:break-word;font-size:12px;
 }
 @media(max-width:680px){
   .app-header{display:block}
+  .top-links{justify-content:flex-start}
   .back-link{display:inline-block;margin-top:12px}
   .kpis,.form-grid,.result-grid,.calc-columns,.trace-grid,.evidence-list{grid-template-columns:1fr}
 }

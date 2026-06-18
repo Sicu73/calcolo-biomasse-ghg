@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manuale - GHG puntuali biomasse</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .manual{max-width:1040px;margin:0 auto;padding:18px;display:grid;gap:18px}
+    .manual h2{margin-top:0}
+    .manual h3{color:var(--ink);margin:18px 0 8px}
+    .manual p,.manual li{font-size:14px;color:var(--ink)}
+    .manual ul,.manual ol{margin:8px 0 0 22px;padding:0}
+    .manual li{margin:6px 0}
+    .notice{border-left:4px solid var(--amber);background:#fbf0d2;padding:12px 14px;border-radius:6px}
+    .okbox{border-left:4px solid var(--green);background:var(--green2);padding:12px 14px;border-radius:6px}
+    .manual-table{width:100%;min-width:0}
+    .manual-table th{position:static}
+    code{background:#f2efe7;border:1px solid var(--line);border-radius:4px;padding:1px 4px}
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Manuale GHG puntuali biomasse</h1>
+      <p>Guida pratica alla compilazione e alla lettura dei risultati.</p>
+    </div>
+    <nav class="top-links">
+      <a class="back-link" href="./">Torna al software</a>
+      <a class="back-link" href="../index.html">Simulatore economico</a>
+    </nav>
+  </header>
+
+  <main class="manual">
+    <section class="panel wide">
+      <h2>1. A cosa serve</h2>
+      <p>Il software serve a costruire un profilo GHG puntuale per una combinazione <b>fornitore + matrice + periodo</b>. Il profilo calcola una prima stima dei termini puntuali della biomassa e li confronta con il valore standard UNI ricavato dal workbook di riferimento.</p>
+      <p>Il risultato puo essere esportato in JSON e usato come base tecnica per alimentare il simulatore economico.</p>
+    </section>
+
+    <section class="panel wide">
+      <h2>2. Uso passo passo</h2>
+      <ol>
+        <li>Apri il software e compila <b>Codice pratica</b>, <b>Fornitore</b>, <b>Anno/campagna</b> e <b>Periodo lotto</b>.</li>
+        <li>Scegli la <b>Matrice</b>. Il programma carica automaticamente categoria, sostanza secca standard, resa e fonte dal catalogo derivato dal workbook UNI.</li>
+        <li>Scegli <b>Digestato</b> e <b>Upgrading/off-gas</b>. Questi campi servono per cercare la riga standard UNI piu coerente.</li>
+        <li>Nel riquadro <b>Calcolo lotto</b> inserisci quantita tal quale e ST reale. Il software calcola peso normalizzato, energia del lotto e metano stimato.</li>
+        <li>Nel riquadro <b>Valori puntuali da dati primari</b> inserisci i dati specifici disponibili: coltivazione, trasporto e, se pertinente, credito effluenti.</li>
+        <li>Allega i documenti richiesti. Senza evidenze il profilo resta marcato come <b>Evidenze incomplete</b>.</li>
+        <li>Leggi la <b>Traccia calcolo</b>: mostra fonte dati, riga standard selezionata, risultati puntuali, evidenze e formule applicate.</li>
+        <li>Quando il profilo e coerente, usa <b>Esporta profilo JSON</b>.</li>
+      </ol>
+    </section>
+
+    <section class="panel wide">
+      <h2>3. Significato dei campi principali</h2>
+      <div class="table-wrap">
+        <table class="manual-table">
+          <thead><tr><th>Campo</th><th>Significato</th></tr></thead>
+          <tbody>
+            <tr><td>Codice pratica</td><td>Identificativo interno della perizia o del lotto di calcolo.</td></tr>
+            <tr><td>Fornitore</td><td>Soggetto da cui proviene la biomassa.</td></tr>
+            <tr><td>Matrice</td><td>Biomassa analizzata: mais, effluente, FORSU, sottoprodotto, ecc.</td></tr>
+            <tr><td>Digestato</td><td>Configurazione di gestione digestato usata per selezionare il valore standard.</td></tr>
+            <tr><td>Upgrading/off-gas</td><td>Tecnologia o livello di perdita considerato nello standard.</td></tr>
+            <tr><td>Quantita tal quale</td><td>Tonnellate reali conferite nel periodo, prima della normalizzazione.</td></tr>
+            <tr><td>ST reale</td><td>Sostanza secca misurata o documentata per la biomassa.</td></tr>
+            <tr><td>ST riferimento</td><td>Sostanza secca standard della matrice nel catalogo UNI/workbook.</td></tr>
+            <tr><td>Peso normalizzato ST</td><td>Quantita riportata alla ST di riferimento: <code>quantita * ST reale / ST riferimento</code>.</td></tr>
+            <tr><td>Energia lotto</td><td>Energia stimata della biomassa normalizzata, in MJ.</td></tr>
+            <tr><td>E standard selezionata</td><td>Emissione standard UNI piu coerente con matrice, digestato e off-gas.</td></tr>
+            <tr><td>ec coltivazione</td><td>Emissione puntuale stimata per produzione agricola della coltura.</td></tr>
+            <tr><td>etd trasporto</td><td>Emissione puntuale stimata per il trasporto della biomassa.</td></tr>
+            <tr><td>credito effluenti</td><td>Credito GHG stimato per gestione alternativa evitata degli effluenti.</td></tr>
+            <tr><td>Evidenze</td><td>Stato dei documenti giustificativi necessari per validare il profilo.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel wide">
+      <h2>4. Metodo di calcolo oggi implementato</h2>
+      <h3>Normalizzazione e lotto</h3>
+      <ul>
+        <li><b>Peso normalizzato</b> = quantita tal quale x ST reale / ST di riferimento.</li>
+        <li><b>Energia lotto</b> = peso normalizzato x MJ/kg tq x 1000.</li>
+        <li><b>Metano stimato</b> = energia lotto / 35,85 MJ/m3 CH4, se serve una conversione energetica.</li>
+      </ul>
+
+      <h3>Valori puntuali</h3>
+      <ul>
+        <li><b>ec</b> = input agricoli per ettaro convertiti in kgCO2e e divisi per energia prodotta per ettaro.</li>
+        <li><b>etd</b> = tonnellate x km x fattore mezzo, diviso per energia del lotto.</li>
+        <li><b>credito</b> = credito evitato in kgCO2e/t, convertito in gCO2e/MJ con segno negativo.</li>
+      </ul>
+    </section>
+
+    <section class="panel wide">
+      <h2>5. Cosa viene dalla UNI e cosa no</h2>
+      <div class="okbox">
+        <p><b>Viene dal materiale UNI/workbook fornito:</b> catalogo matrici, rese, sostanza secca di riferimento, fonti, righe standard di emissione e logica di confronto con lo standard. Il file dati del software e derivato dal workbook <b>UNI 11567-2024_Calcolo_GHG_Lotto 1 (1).xlsx</b>.</p>
+      </div>
+      <div class="notice" style="margin-top:12px">
+        <p><b>Non e ancora una formula puntuale ufficiale UNI completa:</b> i calcoli puntuali <code>ec</code>, <code>etd</code> e <code>credito</code> sono una prima implementazione operativa da dati primari. Servono per costruire e testare il flusso di perizia, ma devono essere verificati e allineati articolo per articolo/prospetto per prospetto alla UNI/TS 11567:2024 prima di usarli come risultato certificabile.</p>
+      </div>
+      <p style="margin-top:12px">In sintesi: <b>lo standard e le rese sono derivati dalla UNI/workbook; il metodo puntuale attuale e una bozza tecnica strutturata, non ancora una trascrizione certificata della UNI.</b></p>
+    </section>
+
+    <section class="panel wide">
+      <h2>6. Come leggere la Traccia calcolo</h2>
+      <ul>
+        <li><b>Fonte dati</b>: mostra workbook, PDF e hash usati per tracciabilita.</li>
+        <li><b>Standard UNI selezionato</b>: mostra quale riga del workbook e stata agganciata.</li>
+        <li><b>Risultati puntuali</b>: mostra i valori calcolati e il delta rispetto allo standard.</li>
+        <li><b>Evidenze</b>: indica quali documenti mancano.</li>
+        <li><b>JSON tecnico esportabile</b>: contiene la traccia completa per uso tecnico o integrazione.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>
