@@ -205,7 +205,7 @@ function renderTrace(result){
     </div>
 
     <details class="trace-raw">
-      <summary>JSON tecnico esportabile</summary>
+      <summary>Traccia tecnica interna</summary>
       <pre>${esc(rawJson)}</pre>
     </details>
   `;
@@ -352,23 +352,196 @@ function download(name, text, type){
   URL.revokeObjectURL(url);
 }
 
-function downloadProfile(){
-  const payload = profilePayload();
-  download(`${payload.profile.profileId || "profilo-ghg"}.json`, JSON.stringify(payload, null, 2), "application/json");
+function reportPayload(){
+  const result = calculate();
+  return {
+    generatedAt: new Date(),
+    profile: profilePayload(),
+    result,
+    trace: tracePayload(result)
+  };
 }
 
-function downloadCatalogCsv(){
-  const rows = [["id","name","category","st","methane_m3_ttq","mj_kg_tq","source"]];
-  DATA.matrices.forEach((m) => rows.push([m.id, m.name, m.category, m.st, m.methane_m3_ttq, m.mj_kg_tq, m.source]));
-  const csv = rows.map((row) => row.map((v) => `"${String(v ?? "").replaceAll('"','""')}"`).join(",")).join("\n");
-  download("catalogo-uni11567-matrici.csv", csv, "text/csv");
+function cleanFileName(value){
+  return String(value || "report-ghg-puntuale").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "report-ghg-puntuale";
+}
+
+function reportCell(value){
+  return value === null || value === undefined || value === "" ? "n/d" : esc(value);
+}
+
+function reportRows(rows){
+  return rows.map(([label, value]) => `<tr><th>${esc(label)}</th><td>${reportCell(value)}</td></tr>`).join("");
+}
+
+function reportMetric(label, value, tone = ""){
+  return `<div class="metric ${tone}"><span>${esc(label)}</span><strong>${reportCell(value)}</strong></div>`;
+}
+
+function reportSection(title, rows){
+  return `
+    <section class="report-section">
+      <h2>${esc(title)}</h2>
+      <table>${reportRows(rows)}</table>
+    </section>
+  `;
+}
+
+function reportHtml(payload, mode = "pdf"){
+  const { trace, result, profile } = payload;
+  const generated = payload.generatedAt.toLocaleString("it-IT");
+  const standard = trace.rigaStandard || {};
+  const evidence = trace.evidenze || {};
+  const formulas = trace.formuleLotto || {};
+  const deltaTone = Number.isFinite(result.supplyDelta) && result.supplyDelta <= 0 ? "good" : "warn";
+  const methodNote = "Standard, rese e righe di confronto sono derivati dal workbook UNI fornito. Le formule puntuali operative ec/etd/credito sono una struttura tecnica da validare rispetto alla UNI/TS 11567:2024 prima di uso certificabile.";
+  const formulasTable = Object.entries(formulas).map(([name, formula]) => `<tr><th>${esc(name)}</th><td><code>${esc(formula)}</code></td></tr>`).join("");
+  const appLink = `${location.origin}${location.pathname}`;
+
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Report GHG puntuale - ${esc(trace.progetto)}</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#f4f1ea;color:#222;font-family:Arial,"Segoe UI",sans-serif;line-height:1.42}
+    .page{max-width:1120px;margin:0 auto;padding:28px}
+    .report-head{background:#10251f;color:#fff;border-bottom:6px solid #16795b;padding:24px 28px;border-radius:10px 10px 0 0}
+    .report-head h1{margin:0;font-size:28px;letter-spacing:0}
+    .report-head p{margin:6px 0 0;color:#c8ded6;font-size:13px}
+    .toolbar{display:flex;gap:10px;justify-content:flex-end;background:#fff;border:1px solid #d9d5ca;border-top:0;padding:12px 18px}
+    .toolbar button{border:0;border-radius:6px;background:#16795b;color:#fff;padding:10px 14px;font-weight:700;cursor:pointer}
+    .sheet{background:#fff;border:1px solid #d9d5ca;border-top:0;padding:22px 28px 30px;border-radius:0 0 10px 10px}
+    .meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}
+    .metric{border:1px solid #d9d5ca;border-top:4px solid #1f6ca8;border-radius:8px;padding:12px;background:#fbfaf7}
+    .metric span{display:block;color:#62665f;font-size:11px;text-transform:uppercase;font-weight:800}
+    .metric strong{display:block;margin-top:5px;font-size:20px;color:#1f3140}
+    .metric.good{border-top-color:#16795b}
+    .metric.warn{border-top-color:#947018}
+    .report-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .report-section{border:1px solid #d9d5ca;border-radius:8px;overflow:hidden;background:#fff;margin-bottom:16px}
+    .report-section h2{margin:0;padding:10px 12px;background:#e4f4ee;color:#16795b;font-size:13px;text-transform:uppercase;letter-spacing:.7px}
+    table{width:100%;border-collapse:collapse;font-size:12.5px}
+    th,td{border-top:1px solid #e8e3d8;padding:8px 10px;text-align:left;vertical-align:top}
+    th{width:34%;color:#62665f;background:#fbfaf7;font-weight:800}
+    code{font-family:Consolas,monospace;font-size:11.5px;color:#24352f}
+    .note{border-left:4px solid #947018;background:#fbf0d2;border-radius:6px;padding:12px 14px;font-size:12.5px;margin:2px 0 16px}
+    .small{font-size:11px;color:#62665f;margin-top:14px}
+    @media print{
+      body{background:#fff}
+      .page{max-width:none;padding:0}
+      .toolbar{display:none}
+      .report-head,.sheet,.report-section,.metric{border-radius:0}
+      .report-section,.metric{break-inside:avoid}
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="report-head">
+      <h1>Report GHG puntuale biomasse</h1>
+      <p>${esc(trace.progetto)} - ${esc(trace.fornitore)} - generato il ${esc(generated)}</p>
+    </header>
+    ${mode === "pdf" ? `<div class="toolbar"><button onclick="window.print()">Salva / stampa PDF</button></div>` : ""}
+    <main class="sheet">
+      <div class="meta">
+        ${reportMetric("Matrice", trace.matrice)}
+        ${reportMetric("Fornitura puntuale", `${fmt(result.punctualTotal, 2)} gCO2e/MJ`, deltaTone)}
+        ${reportMetric("Fornitura UNI", result.standardSupplyTotal === null ? "n/d" : `${fmt(result.standardSupplyTotal, 2)} gCO2e/MJ`)}
+        ${reportMetric("Delta vs UNI", result.supplyDelta === null ? "n/d" : `${fmt(result.supplyDelta, 2)} gCO2e/MJ`, deltaTone)}
+      </div>
+      <div class="note">${esc(methodNote)}</div>
+      <div class="report-grid">
+        ${reportSection("Pratica", [
+          ["Codice pratica", trace.progetto],
+          ["Fornitore", trace.fornitore],
+          ["Campagna", trace.campagna],
+          ["Periodo lotto", profile.project.lotPeriod],
+          ["Stato evidenze", result.status]
+        ])}
+        ${reportSection("Fonte dati", [
+          ["Workbook", trace.fonteWorkbook],
+          ["Hash workbook", trace.sourceWorkbookSha256],
+          ["PDF UNI", trace.fontePdf],
+          ["Software", appLink]
+        ])}
+        ${reportSection("Matrice e configurazione", [
+          ["Matrice", trace.matrice],
+          ["Categoria", trace.categoria],
+          ["Digestato", standard.digestato || $("digestate").value],
+          ["Off-gas", standard.offgas || $("offgas").value],
+          ["Scenario credito", trace.scenarioCredito]
+        ])}
+        ${reportSection("Calcolo lotto", [
+          ["Quantita tal quale", `${fmt(result.quantityT, 2)} t`],
+          ["ST reale", `${fmt(result.realSt * 100, 2)} %`],
+          ["ST riferimento", `${fmt(result.refSt * 100, 2)} %`],
+          ["Peso normalizzato", `${fmt(result.normTon, 2)} t`],
+          ["Energia lotto", `${fmt0(result.energyMj)} MJ`],
+          ["Metano stimato", `${fmt0(result.methaneM3)} m3 CH4`]
+        ])}
+        ${reportSection("Riga standard UNI", [
+          ["Riga workbook", standard.row],
+          ["Filiera", standard.filiera],
+          ["ec UNI", result.stdEc === null ? null : `${fmt(result.stdEc, 2)} gCO2e/MJ`],
+          ["ep UNI impianto", result.stdEp === null ? null : `${fmt(result.stdEp, 2)} gCO2e/MJ`],
+          ["etd UNI", result.stdEtd === null ? null : `${fmt(result.stdEtd, 2)} gCO2e/MJ`],
+          ["crediti UNI", result.stdCred === null ? null : `${fmt(result.stdCred, 2)} gCO2e/MJ`],
+          ["Totale filiera UNI MJ calore", Number.isFinite(result.standardTotal) ? `${fmt(result.standardTotal, 2)} gCO2e/MJ` : null],
+          ["Sotto-totale fornitura UNI", result.standardSupplyTotal === null ? null : `${fmt(result.standardSupplyTotal, 2)} gCO2e/MJ`]
+        ])}
+        ${reportSection("Risultati puntuali", [
+          ["ec coltivazione", `${fmt(result.ec, 3)} gCO2e/MJ`],
+          ["etd trasporto", `${fmt(result.etd, 3)} gCO2e/MJ`],
+          ["credito effluenti", `${fmt(result.credit, 3)} gCO2e/MJ`],
+          ["Sotto-totale fornitura", `${fmt(result.punctualTotal, 3)} gCO2e/MJ`],
+          ["Delta fornitura vs UNI", result.supplyDelta === null ? null : `${fmt(result.supplyDelta, 3)} gCO2e/MJ`]
+        ])}
+        ${reportSection("Evidenze", [
+          ["ec", evidence.ecOk ? "OK" : "manca"],
+          ["trasporto", evidence.transportOk ? "OK" : "manca"],
+          ["credito", evidence.creditOk ? "OK" : "manca"],
+          ["profilo completo", evidence.complete ? "OK" : "manca"]
+        ])}
+        <section class="report-section">
+          <h2>Formule applicate</h2>
+          <table>${formulasTable}</table>
+        </section>
+      </div>
+      <p class="small">Nota: il confronto lato fornitura esclude ep di processo/upgrading, che compete all'impianto. Conservare le evidenze documentali insieme al report.</p>
+    </main>
+  </div>
+</body>
+</html>`;
+}
+
+function exportPdf(){
+  const payload = reportPayload();
+  const reportWindow = window.open("", "_blank");
+  if(!reportWindow){
+    alert("Consenti l'apertura della finestra per generare il PDF.");
+    return;
+  }
+  reportWindow.document.open();
+  reportWindow.document.write(reportHtml(payload, "pdf"));
+  reportWindow.document.close();
+  reportWindow.focus();
+  setTimeout(() => reportWindow.print(), 350);
+}
+
+function exportExcel(){
+  const payload = reportPayload();
+  const fileBase = cleanFileName(payload.profile.profile.profileId || payload.trace.progetto);
+  const html = reportHtml(payload, "excel");
+  download(`${fileBase}.xls`, `\ufeff${html}`, "application/vnd.ms-excel;charset=utf-8");
 }
 
 function bind(){
   document.querySelectorAll("input,select").forEach((el) => el.addEventListener("input", render));
   document.querySelectorAll('input[type="file"]').forEach((el) => el.addEventListener("change", render));
-  $("downloadProfile").addEventListener("click", downloadProfile);
-  $("downloadCsv").addEventListener("click", downloadCatalogCsv);
+  $("exportPdf").addEventListener("click", exportPdf);
+  $("exportExcel").addEventListener("click", exportExcel);
   $("matrixSelect").addEventListener("change", () => {
     const m = selectedMatrix();
     if(m?.st) $("realSt").value = fmt(Number(m.st) * 100, 1).replace(",", ".");

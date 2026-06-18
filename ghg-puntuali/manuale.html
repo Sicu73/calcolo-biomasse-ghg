@@ -35,7 +35,7 @@
     <section class="panel wide">
       <h2>1. A cosa serve</h2>
       <p>Il software serve a costruire un profilo GHG puntuale per una combinazione <b>fornitore + matrice + periodo</b>. Il profilo calcola una prima stima dei termini puntuali della biomassa e li confronta con il valore standard UNI ricavato dal workbook di riferimento.</p>
-      <p>Il risultato puo essere esportato in JSON e usato come base tecnica per alimentare il simulatore economico.</p>
+      <p>Il risultato puo essere esportato come <b>report PDF</b> e come <b>file Excel</b>, con tabelle leggibili per controllo tecnico, archivio pratica e condivisione.</p>
     </section>
 
     <section class="panel wide">
@@ -48,8 +48,11 @@
         <li>Nel riquadro <b>Valori puntuali da dati primari</b> inserisci i dati specifici disponibili: coltivazione, trasporto e, se pertinente, credito effluenti.</li>
         <li>Allega i documenti richiesti. Senza evidenze il profilo resta marcato come <b>Evidenze incomplete</b>.</li>
         <li>Leggi la <b>Traccia calcolo</b>: mostra fonte dati, riga standard selezionata, risultati puntuali, evidenze e formule applicate.</li>
-        <li>Quando il profilo e coerente, usa <b>Esporta profilo JSON</b>.</li>
+        <li>Quando il profilo e coerente, usa <b>Esporta PDF</b> per creare il report stampabile oppure <b>Esporta Excel</b> per scaricare il file tabellare.</li>
       </ol>
+      <div class="okbox" style="margin-top:12px">
+        <p><b>Esporta PDF</b> apre un report impaginato: nella finestra di stampa scegli "Salva come PDF". <b>Esporta Excel</b> scarica un file compatibile Excel con pratica, fonti, lotto, standard UNI, risultati puntuali, evidenze e formule.</p>
+      </div>
     </section>
 
     <section class="panel wide">
@@ -190,7 +193,7 @@
         <li><b>Standard UNI selezionato</b>: mostra quale riga del workbook e stata agganciata.</li>
         <li><b>Risultati puntuali</b>: mostra i valori calcolati e il delta rispetto allo standard.</li>
         <li><b>Evidenze</b>: indica quali documenti mancano.</li>
-        <li><b>JSON tecnico esportabile</b>: contiene la traccia completa per uso tecnico o integrazione.</li>
+        <li><b>Traccia tecnica interna</b>: contiene il dettaglio completo del calcolo per controllo tecnico; le esportazioni ufficiali visibili sono PDF ed Excel.</li>
       </ul>
     </section>
   </main>
