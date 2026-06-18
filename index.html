@@ -52,6 +52,7 @@
   .kpi.rev{border-top-color:var(--blue)} .kpi.rev .val{color:var(--blue)}
   .badge{display:inline-block;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700;margin-right:8px}
   .ok{background:var(--greenbg);color:var(--greend)} .no{background:#FBEAE6;color:var(--red)}
+  .badge.mid{background:#FBF1D9;color:#9A7B1F}
   .detail{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
   .detail th{background:var(--greend);color:#fff;padding:7px 8px;text-align:right;font-size:11px}
   .detail th:first-child{text-align:left}
@@ -168,6 +169,21 @@
         <div class="cmpcard ris"><div class="t">Risparmio / anno</div><div class="b" id="cRis">—</div><div class="s" id="cRisPct"></div></div>
       </div>
       <div class="note" id="cmpNote">Stesso saving nei due scenari, a produzione invariata: cambia solo il mix coltura↔effluente. È il valore della perizia GHG puntuale — stessa sostenibilità, meno effluente, meno costo.</div>
+    </div>
+
+    <div class="card purp">
+      <h2>Valore commerciale del servizio</h2>
+      <div style="margin-bottom:10px"><span id="badgeMargine" class="badge">—</span></div>
+      <div class="grid2">
+        <div><label>Anni incentivo residui</label><input id="anniInc" type="number" value="10" min="1" step="1"></div>
+        <div><label>Success fee anno-1 (%)</label><input id="feePct" type="number" value="20" min="0" step="1"></div>
+      </div>
+      <div class="cmp" style="margin-top:10px">
+        <div class="cmpcard pun"><div class="t">Risparmio biomassa</div><div class="b" id="vRisAnno">—</div><div class="s" id="vRisPct"></div></div>
+        <div class="cmpcard std"><div class="t">Risparmio cumulato</div><div class="b" id="vRisCum">—</div><div class="s" id="vRisCumN"></div></div>
+        <div class="cmpcard ris"><div class="t">Fee proponibile</div><div class="b" id="vFee">—</div><div class="s" id="vFee3"></div></div>
+      </div>
+      <div class="note" id="vNote">Margine a <b>configurazione impianto FISSA</b> (ottimizzi solo le biomasse): qualifica il prospect in ALTO / MEDIO / NULLO. Stima orientativa — la fee va legata al <b>risparmio effettivamente certificato</b>, non a quello teorico.</div>
     </div>
   </div>
 </div>
@@ -388,6 +404,7 @@ function confronto(EF,EmixT,lordo,c){
     ['cStd','cPun','cRis'].forEach(id=>document.getElementById(id).textContent='n/d');
     ['cStdMix','cPunMix','cRisPct'].forEach(id=>document.getElementById(id).textContent='');
     note.textContent='Per il confronto servono almeno una coltura/FORSU e un effluente.';
+    valoreCommerciale(null,0);
     return;
   }
   const tgt=(EF>0?((EF-EmixT)/EF*100):0).toFixed(0);
@@ -409,6 +426,29 @@ function confronto(EF,EmixT,lordo,c){
   document.getElementById('cStdMix').textContent='saving '+svS.toFixed(1)+'% · '+fmt0(tC(S))+' t coltura · '+fmt0(tE(S))+' t effluente ('+(ws(S)*100).toFixed(0)+'% peso)';
   document.getElementById('cPunMix').textContent='saving '+svP.toFixed(1)+'% · '+fmt0(tC(P))+' t coltura · '+fmt0(tE(P))+' t effluente ('+(ws(P)*100).toFixed(0)+'% peso)';
   document.getElementById('cRisPct').textContent=(costS>0?('−'+(ris/costS*100).toFixed(1)+'% sul costo biomassa'):'');
+  valoreCommerciale(ris,costS);
+}
+
+/* Valore commerciale del servizio: classifica il margine e stima la fee (config impianto fissa) */
+function valoreCommerciale(ris,costS){
+  const set=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
+  const bm=document.getElementById('badgeMargine');
+  if(ris===null){ bm.className='badge'; bm.textContent='—';
+    ['vRisAnno','vRisCum','vFee'].forEach(id=>set(id,'n/d')); ['vRisPct','vRisCumN','vFee3'].forEach(id=>set(id,'')); return; }
+  const anni=Math.max(1,+document.getElementById('anniInc').value||10);
+  const feePct=Math.max(0,+document.getElementById('feePct').value||0);
+  const risCum=ris*anni, feeY1=ris*feePct/100, fee3=ris*0.15*Math.min(anni,3);
+  let clazz,lab;
+  if(ris<=0){clazz='no';lab='✗ NULLO — il puntuale non riduce il costo: fuori target';}
+  else if(ris<20000){clazz='no';lab='✗ NULLO — risparmio troppo basso: fuori target';}
+  else if(ris<150000){clazz='mid';lab='● MEDIO — cliente standard';}
+  else {clazz='ok';lab='★ ALTO — cliente premium';}
+  bm.className='badge '+clazz; bm.textContent=lab;
+  set('vRisAnno',(ris>=0?'+':'')+fmt0(ris)+' €/anno');
+  set('vRisPct',costS>0?('−'+(ris/costS*100).toFixed(1)+'% sul costo biomassa'):'');
+  set('vRisCum',fmt0(risCum)+' €'); set('vRisCumN','risparmio su '+anni+' anni');
+  set('vFee', ris>0?fmt0(feeY1)+' €':'—');
+  set('vFee3', ris>0?('o '+fmt0(fee3)+' € su 3 anni (15%/anno)'):'');
 }
 // converte frazione energia effluente -> frazione peso (servono rese rappresentative)
 function wsFromXe(xe,gc,ge){
@@ -459,7 +499,7 @@ function fmt0(n){return Math.round(n).toLocaleString('it-IT');}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 // listeners sui campi impianto
-['resaImp','target','regime','dig','offgas','portata','ore','tariffa','migEc','migCred','migEtd'].forEach(id=>{
+['resaImp','target','regime','dig','offgas','portata','ore','tariffa','migEc','migCred','migEtd','anniInc','feePct'].forEach(id=>{
   document.getElementById(id).addEventListener('input',calc);
 });
 // Comparatore EF <-> target soglia di legge: 80 (altri usi/rete) -> 80% ; 94 (trasporti) -> 65%
