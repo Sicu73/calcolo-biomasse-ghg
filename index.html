@@ -190,7 +190,7 @@
         <div class="cmpcard ris"><div class="t">Canone annuo (tuo)</div><div class="b" id="vCanone">—</div><div class="s" id="vCanoneBreak"></div></div>
         <div class="cmpcard std"><div class="t">Totale sul contratto</div><div class="b" id="vContratto">—</div><div class="s" id="vQuota"></div></div>
       </div>
-      <div class="note" id="vNote">Modello a <b>canone annuo ricorrente</b>: i valori puntuali cambiano ogni anno coi fornitori → è un servizio, non una perizia una tantum. Canone = <b>base</b> + <b>profili</b> (coltura×zona: i ~40 fornitori raggruppati in pochi profili) + <b>assistenza in verifica</b> (giornate × tariffa, difesa dei calcoli davanti all'auditor) + <b>% sul risparmio CERTIFICATO</b> (post-audit). <b>"Cliente netto"</b> = quanto resta al cliente dopo il tuo compenso: se ~0, non è vendibile. Stima orientativa.</div>
+      <div class="note" id="vNote">Modello a <b>canone annuo ricorrente</b>: i valori puntuali cambiano ogni anno coi fornitori → è un servizio, non una perizia una tantum. Canone = <b>base</b> + <b>profili</b> (coltura×zona: i ~40 fornitori raggruppati in pochi profili) + <b>assistenza in verifica</b> (giornate × tariffa, difesa dei calcoli davanti all'auditor) + <b>% sul risparmio CERTIFICATO</b> (post-audit). <b>"Cliente netto"</b> = quanto resta al cliente dopo il tuo compenso. Il <b>giudizio in alto</b> (BUONO / MARGINALE / NON VENDIBILE) misura proprio <b>la quota che resta al cliente</b>: vendi solo se al cliente resta la maggioranza del risparmio. I risparmi piccoli non si possono spalmare — il lavoro fisso (base + profili + audit) se li mangia. Stima orientativa.</div>
     </div>
   </div>
 </div>
@@ -445,22 +445,24 @@ function valoreCommerciale(ris,costS){
   const num=id=>{const e=document.getElementById(id); return Math.max(0,+(e&&e.value)||0);};
   const anni=Math.max(1,+document.getElementById('anniInc').value||1);
   const base=num('baseFee'), nP=num('nProfili'), tP=num('tarProfilo'), gg=num('ggAudit'), tG=num('tarGiorno'), pct=num('pctCert');
-  let clazz,lab;
-  if(ris<=0){clazz='no';lab='✗ NULLO — il puntuale non riduce il costo: non vendibile';}
-  else if(ris<20000){clazz='no';lab='✗ NULLO — risparmio troppo basso: non vendibile';}
-  else if(ris<150000){clazz='mid';lab='● MEDIO — valore medio';}
-  else {clazz='ok';lab='★ ALTO — alto valore';}
-  bm.className='badge '+clazz; bm.textContent=lab;
-  const risCum=ris*anni;
-  set('vRisAnno',(ris>=0?'+':'')+fmt0(ris)+' €/anno');
-  set('vRisCumN','cumulato '+fmt0(risCum)+' € su '+anni+' anni');
   const costoProfili=nP*tP, costoAudit=gg*tG, quota=ris>0?ris*pct/100:0;
   const canone=base+costoProfili+costoAudit+quota;
+  const risCum=ris*anni, nettoCliente=ris-canone;
+  const sCliente=ris>0?nettoCliente/ris:-1; // quota del risparmio che RESTA al cliente
+  // VENDIBILITÀ: conta quanto resta al CLIENTE, non il risparmio assoluto. Se il compenso lo erode, non è vendibile.
+  let clazz,lab;
+  if(ris<=0){clazz='no';lab='✗ NON VENDIBILE — il puntuale non riduce il costo';}
+  else if(nettoCliente<=0){clazz='no';lab='✗ NON VENDIBILE — il tuo compenso supera il risparmio del cliente';}
+  else if(sCliente<0.10){clazz='no';lab='✗ NON VENDIBILE — al cliente resta solo il '+(sCliente*100).toFixed(0)+'% del risparmio';}
+  else if(sCliente<0.50){clazz='mid';lab='⚠ MARGINALE — al cliente resta il '+(sCliente*100).toFixed(0)+'%: rivedi le voci o scarta';}
+  else {clazz='ok';lab='★ BUONO — al cliente resta il '+(sCliente*100).toFixed(0)+'% del risparmio';}
+  bm.className='badge '+clazz; bm.textContent=lab;
+  set('vRisAnno',(ris>=0?'+':'')+fmt0(ris)+' €/anno');
+  set('vRisCumN','cumulato '+fmt0(risCum)+' € su '+anni+' anni');
   set('vCanone',fmt0(canone)+' €/anno');
   set('vCanoneBreak','base '+fmt0(base)+' + profili '+fmt0(costoProfili)+' + audit '+fmt0(costoAudit)+' + '+pct+'% risp. '+fmt0(quota));
-  const nettoCliente=ris-canone;
   set('vContratto',fmt0(canone*anni)+' €');
-  set('vQuota', ris>0?('su '+anni+' anni · cliente netto '+(nettoCliente>=0?'+':'')+fmt0(nettoCliente)+' €/anno'):'risparmio nullo — servizio non giustificato');
+  set('vQuota', ris>0?('su '+anni+' anni · cliente netto '+(nettoCliente>=0?'+':'')+fmt0(nettoCliente)+' €/anno ('+(sCliente*100).toFixed(0)+'%)'):'risparmio nullo — servizio non giustificato');
 }
 // converte frazione energia effluente -> frazione peso (servono rese rappresentative)
 function wsFromXe(xe,gc,ge){
