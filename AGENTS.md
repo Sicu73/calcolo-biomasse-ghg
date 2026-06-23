@@ -35,3 +35,14 @@ seguite SEMPRE il protocollo qui sotto.
 - Modello di calcolo: confronto **lato fornitura** (ec + etd + credito) del
   profilo puntuale contro la riga standard UNI; `ep` (processo/upgrading) è
   escluso dal confronto perché compete all'impianto, non al fornitore.
+
+## Protocollo multi-agente
+
+Questo repo puo essere lavorato anche con Google Antigravity e Google AI Studio/Antigravity Agent, oltre a Codex e Claude Code. Il protocollo operativo comune e in `AI_WORKFLOW.md`.
+
+- Un solo agente alla volta deve avere responsabilita di scrittura sul ramo attivo.
+- Se piu agenti lavorano in parallelo, usare branch o worktree separati.
+- Prima di passare lavoro a un altro agente, lasciare un handoff con obiettivo, file toccati, comandi eseguiti, verifiche, rischi aperti e prossimo passo.
+- Puoi partire da Codex o da Claude Code: chi riceve la richiesta diventa orchestratore temporaneo e coinvolge gli altri agenti solo per compiti mirati. Evitare loop automatici Codex -> Claude -> Codex.
+- Antigravity e Google AI Studio seguono `AGENTS.md` e le skill in `.agents/skills/`; Claude Code segue `CLAUDE.md` e `.claude/skills/`.
+- Non inserire segreti, token o credenziali in prompt, commit, skill o file MCP versionati.

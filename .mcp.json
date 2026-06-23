@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "codex": {
+      "type": "stdio",
+      "command": "codex",
+      "args": [
+        "mcp-server"
+      ],
+      "env": {}
+    },
+    "gemini-docs": {
+      "type": "http",
+      "url": "https://gemini-api-docs-mcp.dev"
+    }
+  }
+}
