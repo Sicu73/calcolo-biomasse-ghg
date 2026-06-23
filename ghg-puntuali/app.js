@@ -35,30 +35,40 @@ function selectedMatrix(){
   return DATA.matrices.find((m) => m.id === $("matrixSelect").value) || DATA.matrices[0];
 }
 
+const FILIERA_STOPWORDS = ["configurazione", "base", "rinnovabile", "insilato", "contenuto", "umidita", "umidit", "sottoprodotti"];
+
+function filieraTokens(text){
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[àáâä]/g, "a").replace(/[èéêë]/g, "e").replace(/[ìíîï]/g, "i").replace(/[òóôö]/g, "o").replace(/[ùúûü]/g, "u")
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(" ")
+    .filter((t) => t.length >= 4 && !FILIERA_STOPWORDS.includes(t));
+}
+
+function tokensMatch(a, b){
+  return a === b
+    || (a.length >= 4 && b.includes(a))
+    || (b.length >= 4 && a.includes(b))
+    || (a.length >= 5 && b.length >= 5 && a.slice(0, 5) === b.slice(0, 5));
+}
+
+function filieraScore(matrixTokens, filiera){
+  const tokens = filieraTokens(filiera);
+  return matrixTokens.reduce((score, m) => score + (tokens.some((f) => tokensMatch(m, f)) ? 1 : 0), 0);
+}
+
+// Aggancia la matrice alla filiera UNI per sovrapposizione di token: niente elenco fisso di colture da mantenere.
 function standardCandidates(matrix){
-  const name = matrix.name.toLowerCase();
-  const group =
-    matrix.category === "effluente" ? "effluente" :
-    matrix.category === "forsu" ? "forsu" :
-    matrix.category === "sottoprodotti" ? "resid" :
-    name.includes("mais") ? "mais" :
-    name.includes("sorgo") ? "sorgo" :
-    name.includes("triticale") ? "triticale" :
-    name.includes("frumento") ? "frumento" :
-    name.includes("orzo") ? "orzo" :
-    name.includes("loietto") ? "loietto" :
-    "configurazione";
-  return STANDARD_ROWS.filter((row) => {
-    const filiera = String(row.filiera || "").toLowerCase();
-    const digest = String(row.digestato || "");
-    const offgas = String(row.offgas || "");
-    const filieraMatches = group === "effluente"
-      ? (filiera.includes("effluente") || filiera.includes("letame") || filiera.includes("liquame"))
-      : filiera.includes(group);
-    return filieraMatches
-      && digest.includes($("digestate").value)
-      && offgas === $("offgas").value;
-  });
+  const matrixTokens = filieraTokens(matrix.name);
+  const digestate = $("digestate").value;
+  const offgas = $("offgas").value;
+  return STANDARD_ROWS
+    .filter((row) => String(row.digestato || "").includes(digestate) && String(row.offgas || "") === offgas)
+    .map((row) => ({ row, score: filieraScore(matrixTokens, row.filiera) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.row);
 }
 
 function selectedStandard(matrix){
@@ -97,10 +107,18 @@ function tracePayload(result){
     formuleLotto: {
       pesoNormalizzato: "quantita_t * ST_reale / ST_riferimento",
       energiaMJ: "peso_normalizzato_t * MJ_kg_tq * 1000",
-      ec: "(N*fattoreN + gasolio*2.68 + elettricita*0.32) * 1000 / energia_MJ_ha",
+      ec: "(N*fattoreN + gasolio*fattoreGasolio + elettricita*fattoreElettrico) * 1000 / energia_MJ_ha",
       etd: "tonnellate * km * fattore_mezzo * 1000 / energia_MJ_lotto",
       credito: "scenario != none ? -(tonnellate * kgCO2e_t_evitati) * 1000 / energia_MJ_lotto : 0",
       confrontoFornitura: "delta = (ec+etd+credito)_puntuale - (ec+etd+crediti)_standard [gCO2e/MJ biometano]; ep di processo escluso (compete all'impianto)"
+    },
+    coefficienti: {
+      fattoreN_kgCO2e_kgN: result.factorN,
+      gasolio_kgCO2e_L: result.dieselFactor,
+      elettricita_kgCO2e_kWh: result.electricityFactor,
+      trasporto_kgCO2e_tkm: result.transportFactor,
+      pcMetano_MJ_m3: factorDefaults.methaneMjM3,
+      nota: "Valori predefiniti indicativi: verificare e documentare la fonte (RED II / banche dati nazionali) prima dell'uso certificabile."
     },
     scenarioCredito: result.avoidedScenario,
     risultati: {
@@ -188,6 +206,18 @@ function renderTrace(result){
     </div>
 
     <div class="trace-card">
+      <h3>Coefficienti applicati</h3>
+      <div class="trace-list">
+        ${row("Fattore N", `${fmt(trace.coefficienti.fattoreN_kgCO2e_kgN, 2)} kgCO2e/kg N`)}
+        ${row("Gasolio", `${fmt(trace.coefficienti.gasolio_kgCO2e_L, 2)} kgCO2e/L`)}
+        ${row("Energia elettrica", `${fmt(trace.coefficienti.elettricita_kgCO2e_kWh, 3)} kgCO2e/kWh`)}
+        ${row("Trasporto", `${fmt(trace.coefficienti.trasporto_kgCO2e_tkm, 3)} kgCO2e/tkm`)}
+        ${row("PC metano", `${fmt(trace.coefficienti.pcMetano_MJ_m3, 2)} MJ/m3`)}
+        ${row("Fonte", "predefiniti indicativi - documentare la fonte")}
+      </div>
+    </div>
+
+    <div class="trace-card">
       <h3>Evidenze</h3>
       <div class="evidence-list">
         ${evidenceChip("ec", trace.evidenze.ecOk)}
@@ -237,13 +267,16 @@ function calculate(){
   const dieselLHa = num("dieselLHa");
   const electricityKwhHa = num("electricityKwhHa");
   const factorN = num("factorN");
+  const dieselFactor = num("dieselFactor") || factorDefaults.dieselKgCO2eL;
+  const electricityFactor = num("electricityFactor") || factorDefaults.electricityKgCO2eKwh;
   const energyMjHa = Math.max(yieldTha * Math.max(mjKgTq, 0.001) * 1000, 0.0001);
   const ec = matrix.category === "coltura"
-    ? (nitrogenKgHa * factorN + dieselLHa * factorDefaults.dieselKgCO2eL + electricityKwhHa * factorDefaults.electricityKgCO2eKwh) * 1000 / energyMjHa
+    ? (nitrogenKgHa * factorN + dieselLHa * dieselFactor + electricityKwhHa * electricityFactor) * 1000 / energyMjHa
     : 0;
 
+  const transportFactor = num("transportFactor");
   const etd = energyMj > 0
-    ? (quantityT * num("distanceKm") * num("transportFactor")) * 1000 / energyMj
+    ? (quantityT * num("distanceKm") * transportFactor) * 1000 / energyMj
     : 0;
 
   const avoidedScenario = $("avoidedScenario").value;
@@ -257,7 +290,7 @@ function calculate(){
   const evidence = evidenceComplete(matrix);
   const status = evidence.complete ? "Evidenze allegate" : "Evidenze incomplete";
 
-  return { matrix, quantityT, realSt, refSt, normTon, energyMj, methaneM3, standard, standardTotal, stdEc, stdEtd, stdCred, stdEp, avoidedScenario, ec, etd, credit, punctualTotal, standardSupplyTotal, supplyDelta, evidence, status };
+  return { matrix, quantityT, realSt, refSt, normTon, energyMj, methaneM3, standard, standardTotal, stdEc, stdEtd, stdCred, stdEp, avoidedScenario, ec, etd, credit, punctualTotal, standardSupplyTotal, supplyDelta, factorN, dieselFactor, electricityFactor, transportFactor, evidence, status };
 }
 
 function render(){
@@ -498,6 +531,14 @@ function reportHtml(payload, mode = "pdf"){
           ["Sotto-totale fornitura", `${fmt(result.punctualTotal, 3)} gCO2e/MJ`],
           ["Delta fornitura vs UNI", result.supplyDelta === null ? null : `${fmt(result.supplyDelta, 3)} gCO2e/MJ`]
         ])}
+        ${reportSection("Coefficienti applicati", [
+          ["Fattore N", `${fmt(result.factorN, 2)} kgCO2e/kg N`],
+          ["Gasolio", `${fmt(result.dieselFactor, 2)} kgCO2e/L`],
+          ["Energia elettrica", `${fmt(result.electricityFactor, 3)} kgCO2e/kWh`],
+          ["Trasporto", `${fmt(result.transportFactor, 3)} kgCO2e/tkm`],
+          ["PC metano", `${fmt(factorDefaults.methaneMjM3, 2)} MJ/m3`],
+          ["Fonte coefficienti", "predefiniti indicativi - documentare la fonte (RED II / banche dati nazionali)"]
+        ])}
         ${reportSection("Evidenze", [
           ["ec", evidence.ecOk ? "OK" : "manca"],
           ["trasporto", evidence.transportOk ? "OK" : "manca"],
@@ -680,6 +721,11 @@ function buildXlsxSheets(payload){
   pair("ec coltivazione", result.ec, "etd trasporto", result.etd);
   pair("credito effluenti", result.credit, "Sotto-totale fornitura", result.punctualTotal);
   pair("Delta fornitura vs UNI", result.supplyDelta, "Scenario credito", trace.scenarioCredito);
+  summaryRows.push([]);
+  section("Coefficienti applicati");
+  pair("Fattore N (kgCO2e/kg N)", result.factorN, "Gasolio (kgCO2e/L)", result.dieselFactor);
+  pair("Energia elettrica (kgCO2e/kWh)", result.electricityFactor, "Trasporto (kgCO2e/tkm)", result.transportFactor);
+  pair("PC metano (MJ/m3)", factorDefaults.methaneMjM3, "Fonte", "predefiniti - documentare la fonte");
   summaryRows.push([]);
   section("Evidenze");
   pair("ec", evidence.ecOk ? "OK" : "manca", "trasporto", evidence.transportOk ? "OK" : "manca");
