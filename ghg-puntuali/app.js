@@ -684,7 +684,7 @@ function buildXlsxSheets(payload){
     summaryMerges.push(`A${row}:D${row}`);
   };
   const pair = (label, value, label2, value2) => summaryRows.push([
-    xCell(label, 4), xAuto(value), xCell(label2 || "", 4), xAuto(value2 || "")
+    xCell(label, 4), xAuto(value), xCell(label2 || "", 4), xAuto(value2)
   ]);
 
   const titleRow = summaryRows.push([xCell("Report GHG puntuale biomasse", 1)]);
