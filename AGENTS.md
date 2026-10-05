@@ -4,6 +4,9 @@ Questo repo è sviluppato **in parallelo da due agenti**: Codex e Claude Code.
 Entrambi pubblicano sullo stesso ramo `main`. Per non sovrascrivervi a vicenda,
 seguite SEMPRE il protocollo qui sotto.
 
+Le regole generali di Carlo, il protocollo CTCP-6.2.0 (skill `mao-ctcp`) e le skill condivise stanno nel repo privato `Sicu73/istruzioni-ai`, fonte unica per Claude e Codex.
+Se è disponibile in questa sessione, leggi il suo `istruzioni/globali.md` prima di iniziare. Le regole di questo file valgono in aggiunta, per questo progetto.
+
 ## Protocollo Git (obbligatorio)
 
 1. **Prima di iniziare a lavorare**: `git pull --rebase origin main`.
