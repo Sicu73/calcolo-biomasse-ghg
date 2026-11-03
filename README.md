@@ -1,10 +1,13 @@
 # Calcolo costo biomasse & risparmio GHG — UNI/TS 11567:2024
 
-App web **a file singolo** (HTML/CSS/JS, nessuna dipendenza, funziona offline) per stimare, dato un impianto di biometano e un mix di biomasse, il **costo annuo della materia prima**, il **risparmio di gas serra (GHG)** e la **sostenibilità**, confrontando il calcolo con **valori standard** e con **valori puntuali**.
+Due strumenti web gratuiti per impianti di biometano: si aprono nel browser, senza installare nulla.
 
-> 🔗 **Versione online (apri e usa subito):** https://sicu73.github.io/calcolo-biomasse-ghg/
+| Strumento | A cosa serve | Apri |
+|---|---|---|
+| **Simulatore economico** | Dato un impianto e un mix di biomasse: costo annuo della materia prima, risparmio GHG, sostenibilità | [Apri](https://sicu73.github.io/calcolo-biomasse-ghg/) |
+| **GHG puntuali biomasse** | Profilo GHG puntuale per fornitore + matrice + periodo, confrontato con il valore standard UNI; report PDF ed Excel | [Apri](https://sicu73.github.io/calcolo-biomasse-ghg/ghg-puntuali/) · [Manuale](https://sicu73.github.io/calcolo-biomasse-ghg/ghg-puntuali/manuale.html) |
 
-## Cosa fa
+## Simulatore economico: cosa fa
 
 - **Impianto**: resa in rete / autoconsumo, comparatore fossile EF (80 «altri usi» / 94 trasporti), target di risparmio, energia di processo (rinnovabile/base), gestione digestato (Dig.A / Dig.C 30 gg / ≥60 gg), upgrading & off-gas (S/C OffG, UpG <1%, UpG <0,2%, C/C OffG).
 - **Biomasse**: tabella editabile con libreria a 3 categorie UNI (**coltura energetica**, **effluente zootecnico**, **FORSU**); per ogni matrice imposti resa (Sm³CH₄/t), costo (€/t) e **tonnellate/anno**.
@@ -12,7 +15,7 @@ App web **a file singolo** (HTML/CSS/JS, nessuna dipendenza, funziona offline) p
 - **Risultati in tempo reale**: risparmio GHG %, badge di sostenibilità (target + soglia di legge 70%), costo biomassa €/anno e €/Sm³, biometano netto, dettaglio per matrice.
 - **Confronto Standard ↔ Puntuale**: a parità di target di saving, mostra il **risparmio €/anno** ottenibile con un'analisi GHG puntuale delle sole biomasse.
 
-## Come si usa
+## Simulatore economico: come si usa
 
 1. Apri la [versione online](https://sicu73.github.io/calcolo-biomasse-ghg/), **oppure** scarica `index.html` e aprilo con un doppio clic nel browser.
 2. Imposta i parametri d'impianto, le biomasse e le tonnellate.
@@ -20,7 +23,7 @@ App web **a file singolo** (HTML/CSS/JS, nessuna dipendenza, funziona offline) p
 
 Il pulsante **«↺ Caso validato»** ripristina lo scenario di riferimento (impianto 300 Sm³/h, mais + liquame suino).
 
-## Modello
+## Simulatore economico: modello
 
 Emissione ponderata sull'energia del mix:
 
